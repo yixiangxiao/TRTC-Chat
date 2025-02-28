@@ -1,6 +1,4 @@
 <script>
-	import Upgrade from '@/common/lib/app-version.js';
-	import $U from '@/common/lib/util.js';
 	import { rejectCall, busyCall, noResponseCall, groupCallEnd, joinGroupCall, leaveGroupCall, endGroupCall } from '@/api/rtc.js';
 	export default {
 		globalData: {
@@ -29,13 +27,6 @@
 					plus.push.clear();
 					// #endif
 				}
-			})
-			const upgrade = new Upgrade()
-			 // 检查版本并更新
-			upgrade.checkVersion().then(isLatest => {
-			    if (!isLatest) {
-			        upgrade.updatePackage()
-			    }
 			})
 			plus.globalEvent.addEventListener('onCallCancelled', (res) => {
 				console.log('取消通话', res)

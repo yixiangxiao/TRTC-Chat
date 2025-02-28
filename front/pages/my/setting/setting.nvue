@@ -2,7 +2,6 @@
 	<view class="page">
 		<!-- 导航栏 -->
 		<my-nav-bar title="我的设置" isShowBack :isShowRight="false"></my-nav-bar>
-		<my-list-item title="关于仿微信" :is-show-right="true" :is-show-icon="false" @click="toAbout">
 		</my-list-item>
 		<!-- 退出登录 -->
 		<my-divider></my-divider>
@@ -46,11 +45,6 @@
 					    });
 					  }
 					});
-				})
-			},
-			toAbout(){
-				uni.navigateTo({
-					url:'/pages/my/about/about'
 				})
 			}
 		}

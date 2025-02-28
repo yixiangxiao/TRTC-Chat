@@ -167,18 +167,6 @@
 			"style" : {}
 		},
 		{
-			"path" : "pages/my/about/about",
-			"style" : {}
-		},
-		{
-			"path" : "pages/my/version-info/version-info",
-			"style" : {}
-		},
-		{
-			"path" : "pages/my/version-info-content/version-info-content",
-			"style" : {}
-		},
-		{
 			"path" : "pages/find/moment-detail/moment-detail",
 			"style" : {}
 		}

@@ -4,12 +4,6 @@
  */
 module.exports = app => {
   const { router, controller } = app;
-  // 获取 app版本信息
-  router.get('/get_app_info', controller.version.searchAppInfo);
-  // 保存 app版本信息
-  router.post('/save_app_info', controller.version.saveAppInfo);
-  // 获取 app所有版本信息
-  router.get('/get_all_app_info', controller.version.searchAllAppInfo);
   // 发送验证码
   router.get('/sendmail', controller.yzm.sendMail);
   // 注册
