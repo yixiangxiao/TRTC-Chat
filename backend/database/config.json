@@ -1,0 +1,26 @@
+{
+  "development": {
+    "username": "root",
+    "password": "root",
+    "database": "egg-wechat",
+    "host": "127.0.0.1",
+    "dialect": "mysql",
+    "timezone": "+08:00"
+  },
+  "test": {
+    "username": "root",
+    "password": "root",
+    "database": "egg-wechat",
+    "host": "127.0.0.1",
+    "dialect": "mysql",
+    "timezone": "+08:00"
+  },
+  "production": {
+    "username": "root",
+    "password": "root",
+    "database": "egg-wechat",
+    "host": "127.0.0.1",
+    "dialect": "mysql",
+    "timezone": "+08:00"
+  }
+}
