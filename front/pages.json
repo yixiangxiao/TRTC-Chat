@@ -1,0 +1,228 @@
+{
+	"pages": [ //pages数组中第一项表示应用启动页，参考：https://uniapp.dcloud.io/collocation/pages
+		{
+			"path": "pages/common/login/login",
+			"style": {}
+
+		},
+		{
+			"path": "pages/tabbar/index/index",
+			"style": {}
+		}, {
+			"path": "pages/tabbar/mail/mail",
+			"style": {}
+
+		}, {
+			"path": "pages/tabbar/find/find",
+			"style": {}
+
+		}, {
+			"path": "pages/tabbar/my/my",
+			"style": {}
+
+		}, {
+			"path": "pages/chat/chat",
+			"style": {}
+
+		}, {
+			"path": "pages/chat/video/video",
+			"style": {}
+		}, {
+			"path": "pages/chat/chat-set/chat-set",
+			"style": {}
+
+		}, {
+			"path": "pages/mail/user-base/user-base",
+			"style": {}
+
+		}, {
+			"path": "pages/mail/user-remark-tag/user-remark-tag",
+			"style": {}
+
+		}, {
+			"path": "pages/mail/user-tag-set/user-tag-set",
+			"style": {}
+		}, {
+			"path": "pages/mail/user-moments-auth/user-moments-auth",
+			"style": {}
+
+		}, {
+			"path": "pages/image/image",
+			"style": {}
+		}, {
+			"path": "pages/mail/send-card/send-card",
+			"style": {}
+
+		}, {
+			"path": "pages/mail/mail/mail",
+			"style": {}
+		}, {
+			"path": "pages/mail/user-report/user-report",
+			"style": {}
+
+		}, {
+			"path": "pages/find/moments/moments",
+			"style": {
+				"enablePullDownRefresh": true
+			}
+
+		}, {
+			"path": "pages/my/userinfo/userinfo",
+			"style": {}
+
+		}, {
+			"path": "pages/image/image_new/image_new",
+			"style": {}
+
+		}, {
+			"path": "pages/my/code/code",
+			"style": {}
+		}, {
+			"path": "pages/my/fava/fava",
+			"style": {
+				"enablePullDownRefresh": true
+			}
+
+		}, {
+			"path": "pages/common/search/search",
+			"style": {}
+
+		}, {
+			"path": "pages/find/add-moment/add-moment",
+			"style": {}
+
+		}
+	    ,{
+            "path" : "pages/common/register/register",
+            "style" :                                                                                    
+            {}
+            
+        }
+        ,{
+            "path" : "pages/common/forget-password/forget-password",
+            "style" :                                                                                    
+            {}
+            
+        },
+        {
+        	"path" : "pages/my/setting/setting",
+        	"style" : {}
+        },
+        {
+        	"path" : "pages/mail/add-friend/add-friend",
+        	"style" : {}
+        },
+        {
+        	"path" : "pages/mail/apply-list/apply-list",
+        	"style" : {
+				"enablePullDownRefresh": true
+			}
+        },
+        {
+        	"path" : "pages/mail/group-list/group-list",
+        	"style" : 
+        	{
+        		"enablePullDownRefresh" : true
+        	}
+        },
+        {
+        	"path" : "pages/chat/group-remark/group-remark",
+        	"style" : {}
+        },
+        {
+        	"path" : "pages/chat/chat-list/chat-list",
+        	"style" : {}
+        },
+        {
+        	"path" : "pages/chat/chat-history/chat-history",
+        	"style" : {}
+        },
+        {
+        	"path" : "pages/chat/group-user/group-user",
+        	"style" : {}
+        },
+        {
+        	"path" : "pages/mail/tag-list/tag-list",
+        	"style" : 
+        	{
+        		"enablePullDownRefresh" : true
+        	}
+        },
+        {
+        	"path" : "pages/mail/tag-read/tag-read",
+        	"style" : {
+				"enablePullDownRefresh" : true
+			}
+        },
+        {
+        	"path" : "pages/chat/scan-add/scan-add",
+        	"style" : {}
+        },
+        {
+        	"path" : "pages/mail/search-friends/search-friends",
+        	"style" : {}
+        },
+		{
+			"path" : "pages/chat/group-call/group-call",
+			"style" : {}
+		},
+		{
+			"path" : "pages/my/about/about",
+			"style" : {}
+		},
+		{
+			"path" : "pages/my/version-info/version-info",
+			"style" : {}
+		},
+		{
+			"path" : "pages/my/version-info-content/version-info-content",
+			"style" : {}
+		},
+		{
+			"path" : "pages/find/moment-detail/moment-detail",
+			"style" : {}
+		}
+    ],
+	"globalStyle": {
+		"navigationBarTextStyle": "black",
+		"navigationBarTitleText": "仿微信",
+		"navigationBarBackgroundColor": "#F8F8F8",
+		"backgroundColor": "#F8F8F8",
+		"app-plus": {
+			"titleNView": false,
+			"scrollIndicator": "none"
+		}
+	},
+	"tabBar": {
+		"color": "#000000",
+		"selectedColor": "#08C261",
+		"borderStyle": "black",
+		"backgroundColor": "#F7F7F7",
+		"list": [{
+				"iconPath": "static/tabbar/index.png",
+				"selectedIconPath": "static/tabbar/index-select.png",
+				"pagePath": "pages/tabbar/index/index",
+				"text": "首页"
+			},
+			{
+				"iconPath": "static/tabbar/mail.png",
+				"selectedIconPath": "static/tabbar/mail-select.png",
+				"pagePath": "pages/tabbar/mail/mail",
+				"text": "通讯录"
+			},
+			{
+				"iconPath": "static/tabbar/find.png",
+				"selectedIconPath": "static/tabbar/find-select.png",
+				"pagePath": "pages/tabbar/find/find",
+				"text": "发现"
+			},
+			{
+				"iconPath": "static/tabbar/my.png",
+				"selectedIconPath": "static/tabbar/my-select.png",
+				"pagePath": "pages/tabbar/my/my",
+				"text": "我的"
+			}
+		]
+	},
+	"uniIdRouter": {}
+}
