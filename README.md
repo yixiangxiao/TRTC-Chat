@@ -55,6 +55,8 @@ manifest.json
 
 # 效果展示
 [视频地址](https://www.bilibili.com/video/BV1gR9gYsEac/?vd_source=3c933e9027ab5b0d964aa5bb1769f0a8)
+
+## 图片
 ![1.jpg](/images/1.jpg "1") <!-- 此路径表示图片和MD文件，处于同一目录 -->
 
 ![2.jpg](/images/2.jpg "2") <!-- 此路径表示图片和MD文件，处于同一目录 -->
