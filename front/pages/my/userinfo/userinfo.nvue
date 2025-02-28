@@ -1,0 +1,174 @@
+<template>
+	<view class="page">
+		<!-- 导航栏 -->
+		<my-nav-bar is-show-back title="个人资料" :is-show-right="false"></my-nav-bar>
+
+		<my-list-item title="头像" :is-show-right="true" :is-show-icon="false" @click="upload">
+			<my-avatar @click="previewImage(user.avatar)" slot="right" :src="user.avatar" :size="110"></my-avatar>
+		</my-list-item>
+		<my-list-item title="昵称" :is-show-right="true" :is-show-icon="false" @click="update('nickname')">
+			<text slot="right" class="font text-muted">{{user.nickname}}</text>
+		</my-list-item>
+		<my-list-item title="账号" :is-show-right="true" :is-show-icon="false">
+			<text slot="right" class="font text-muted">{{user.username}}</text>
+		</my-list-item>
+		<my-list-item title="二维码名片" :is-show-right="true" :is-show-icon="false" @click="toCode">
+			<text slot="right" class="iconfont font-md">&#xe647;</text>
+		</my-list-item>
+		<picker mode='selector' @change="bindPickerChange" :value="index" :range="array">
+		<my-list-item title="性别" :is-show-right="true" :is-show-icon="false">
+			<text slot="right" class="font flex flex-end text-muted">{{ array[index] }}</text>
+		</my-list-item>
+	</picker>
+		<my-list-item title="城市" :is-show-right="true" :is-show-icon="false" @click="openCity">
+			<view slot="right">
+				<uni-data-picker ref="mypicker" :map="{text:'name',value:'code'}" @change="onchange"  v-model="city" :localdata="citys" popup-title="请选择城市" ></uni-data-picker>
+			</view>
+		</my-list-item>
+		
+		<my-confirm ref="confirm" :title="title">
+			<input type="text" v-model="text" class="font-md border-bottom" :placeholder="title">
+		</my-confirm>
+	</view>
+</template>
+
+<script>
+	import MyNavBar from '@/components/my-ui/my-nav-bar.vue';
+	import MyAvatar from '@/components/my-ui/my-avatar.vue';
+	import MyListItem from '@/components/my-ui/my-list-item.vue';
+	import MyConfirm from '@/components/my-ui/my-confirm.vue';
+	import { mapState } from 'vuex';
+	import { uploadBase64 } from '@/api/chat.js';
+	import { updateInfo } from '@/api/user.js';
+	import citys from '@/common/citys.js';
+	import UniDataPicker from '@/uni_modules/uni-data-picker/components/uni-data-picker/uni-data-picker.vue'
+	export default {
+		components: {
+			MyNavBar,
+			MyAvatar,
+			MyListItem,
+			MyConfirm,
+			UniDataPicker
+		},
+		data() {
+			return {
+				title: "修改昵称",
+				text: "",
+				array: ['女', '男', '保密'],
+				citys,
+				city:''
+			}
+		},
+		computed: {
+			...mapState({
+				user:state=>state.user.user
+			}),
+			index() {
+				return this.array.findIndex(v => v=== this.user.sex)
+			},
+		},
+		mounted() {
+			uni.$on('getImage', this.getImage)
+			const area = this.user.area ? JSON.parse(this.user.area) : ''
+			if (area && area.length) {
+				// 取市级
+				this.city = area[area.length -1].value
+			} else {
+				this.city = ''
+			}
+		},
+		beforeDestroy() {
+			uni.$off('getImage', this.getImage)
+		},
+		methods: {
+			async onchange(e) {
+			    const value = e.detail.value
+				// 更改数据库
+				await updateInfo({avatar: this.user.avatar, nickname: this.user.nickname, sex: this.user.sex, area: JSON.stringify(value)})
+				// 更改本地
+				this.$store.commit('user/updateUser',{ k: 'area', v: JSON.stringify(value) })
+				this.$store.dispatch('user/updateUser') //更新用户信息
+			},
+			openCity() {
+				this.$refs.mypicker.show()
+			},
+			//更新
+			update(type) {
+				this.text = this.user.nickname
+				this.title = "修改昵称"
+				this.$refs.confirm.show( async close => {
+					if (this.text === "") {
+						return uni.showToast({
+							icon: 'none',
+							title: '不能为空'
+						})
+					}
+					// 更改数据库
+					await updateInfo({ avatar: this.user.avatar, nickname: this.text, sex: this.user.sex, area: this.user.area})
+					this.user.nickname = this.text
+					// 更改本地
+					this.$store.commit('user/updateUser',{ k: 'nickname', v: this.text })
+					this.$store.dispatch('user/updateUser') //更新用户信息
+					close()
+				})
+			},
+			//获取图片
+			async getImage(data) {
+				// 上传头像
+				const url = await uploadBase64({ str: data })
+				// 更改数据库
+				await updateInfo({avatar: url, nickname: this.user.nickname, sex: this.user.sex, area: this.user.area})
+				this.user.avatar = url
+				// 更改本地
+				this.$store.commit('user/updateUser',{ k: 'avatar', v: url })
+				this.$store.dispatch('user/updateUser') //更新用户信息
+				
+			},
+			async bindPickerChange(e) {
+				const sex = this.array[e.detail.value]
+				await updateInfo({avatar: this.user.avatar, nickname: this.user.nickname, sex, area: this.user.area })
+				// 更改本地
+				this.$store.commit('user/updateUser',{ k: 'sex', v: sex })
+				this.$store.dispatch('user/updateUser') //更新用户信息
+			},
+			upload() {
+				uni.chooseImage({
+					count: 1, //默认9
+					sizeType: ['original', 'compressed'], //可以指定是原图还是压缩图，默认二者都有
+					sourceType: ['album'], //从相册选择
+					success: function (res) {
+						// console.log(JSON.stringify(res.tempFilePaths));
+						uni.navigateTo({
+							url: `/pages/image/image_new/image_new?url=${res.tempFilePaths[0]}`
+						})
+					}
+				});
+				// uni.navigateTo({
+				// 	url: '/pages/image/image'
+				// })
+			},
+			//二维码页面
+			toCode(){
+				uni.navigateTo({
+					url:`/pages/my/code/code?params=${encodeURIComponent(JSON.stringify(
+					{
+					  id: this.user.id, 
+					  name: this.user.nickname || this.user.username,
+					  avatar: this.user.avatar
+					}
+					))}&type=user`
+				})
+			},
+			previewImage(url) {
+				uni.previewImage({
+					current: url,
+					urls: [url],
+				});
+			}
+		}
+	}
+</script>
+
+<style>
+
+</style>

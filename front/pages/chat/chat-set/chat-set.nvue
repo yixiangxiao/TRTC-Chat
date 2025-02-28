@@ -1,0 +1,350 @@
+<template>
+	<view style="background-color: #EDEDED" :style="'min-height:'+ height + 'px'">
+		<!-- 导航栏 -->
+		<my-nav-bar is-show-back title="聊天信息" :is-show-right="false"></my-nav-bar>
+		<view class="flex flex-wrap py-3 bg-white">
+			
+			<view v-if="detail.chat_type === 'user'" @click="openUser(detail.id)" class="flex flex-column align-center justify-center mb-2" style="width: 150rpx;">
+				<my-avatar :need-stop-propagation="false" :src="detail.avatar" :size="110"></my-avatar>
+				<text class="font text-muted mt-1">{{detail.name}}</text>
+			</view>
+			
+			<view v-else v-for="(item, index) in list" @click="openUser(item.id)" :key="item.id" class="flex flex-column align-center justify-center mb-2" style="width: 150rpx;">
+				<my-avatar :need-stop-propagation="false" :src="item.avatar" :size="110"></my-avatar>
+				<text class="font text-muted mt-1">{{item.name}}</text>
+			</view>
+			
+			<view class="flex flex-column align-center justify-center mb-5" style="width: 150rpx;">
+				<view @click="openMail" class="flex align-center justify-center border" style="width: 120rpx;height: 120rpx;" hover-class="bg-hover-light">
+					<text class="font text-light-muted" style="font-size: 100rpx;">+</text>
+				</view>
+			</view>
+			
+			<block>
+				<view v-if="isGroupUser" class="flex flex-column align-center justify-center mb-5" style="width: 150rpx;">
+					<view @click="deleteUser" class="flex align-center justify-center border" style="width: 120rpx;height: 120rpx;" hover-class="bg-hover-light">
+						<text class="font text-light-muted" style="font-size: 100rpx;">-</text>
+					</view>
+				</view>
+			</block>
+		</view>
+		
+		<view v-if="detail.chat_type === 'group'">
+		    <my-divider></my-divider>
+		    <my-list-item title="群聊名称" :is-show-right="true" :is-show-icon="false" @click="updateName">
+			    <text slot="right" class="font text-muted">{{detail.name}}</text>
+		    </my-list-item>
+		    <my-list-item title="群二维码" :is-show-right="true" :is-show-icon="false" @click="toQrCode">
+			    <text slot="right" class="iconfont font-md text-muted">&#xe647;</text>
+		    </my-list-item>
+		    <my-list-item title="群公告" :is-show-right="true" :is-show-icon="false" @click="toRemark">
+		    </my-list-item>
+		</view>
+		
+		<my-divider></my-divider>
+		<my-list-item title="查找聊天记录" :is-show-right="true" :is-show-icon="false" @click="toHistory"></my-list-item>
+		
+		<my-divider></my-divider>
+		<my-list-item title="消息免打扰" :is-show-right="true" :is-show-icon="false" :is-show-right-icon="false">
+			<switch slot="right" :checked="detail.nowarn" color="#08C060" @change="updateChatItem($event,'nowarn')" />
+		</my-list-item>
+		<my-list-item title="置顶聊天" :is-show-right="true" :is-show-icon="false" :is-show-right-icon="false">
+			<switch slot="right" :checked="detail.istop" color="#08C060" @change="updateChatItem($event,'istop')" />
+		</my-list-item>
+		<my-list-item title="强提醒" :is-show-right="true" :is-show-icon="false" :is-show-right-icon="false">
+			<switch slot="right" :checked="detail.strongwarn" color="#08C060" @change="updateChatItem($event,'strongwarn')" />
+		</my-list-item>
+		
+		<view v-if="detail.chat_type === 'group'">
+		   <my-divider></my-divider>
+		   <my-list-item title="我在本群的昵称" :is-show-right="true" :is-show-icon="false" @click="updateNickname">
+			   <text slot="right" class="font text-muted">{{nickname}}</text>
+		   </my-list-item>
+		   <my-list-item title="显示成员昵称" :is-show-right="true" :is-show-icon="false" :is-show-right-icon="false">
+			   <switch slot="right" :checked="detail.shownickname" color="#08C060" @change="updateChatItem($event,'shownickname')" />
+		   </my-list-item>
+		</view>
+		
+		<my-divider></my-divider>
+		<my-list-item title="清空聊天记录" :is-show-right="true" :is-show-icon="false" @click="deleteHistory"></my-list-item>
+		<my-divider></my-divider>
+		<!-- <my-list-item title="清空双方聊天记录" :is-show-right="true" :is-show-icon="false" @click="deleteBothHistory"></my-list-item>
+		<my-divider></my-divider> -->
+		<my-list-item title="投诉" :is-show-right="true" :is-show-icon="false"></my-list-item>
+		
+		<view v-if="detail.chat_type === 'group'">
+		   <my-divider></my-divider>
+		   <view class="py-3 flex justify-center align-center bg-white" hover-class="bg-hover-light" @click="quitGroup">
+			  <text class="font-md text-danger">{{isGroupUser ? '解散群聊' : '退出群聊'}}</text>
+		   </view>
+		</view>
+		
+		<my-confirm ref="confirm" :title="'修改'+confirmTitle">
+			<input type="text" v-model="confirmText" class="font-md border-bottom" :placeholder="confirmTitle">
+		</my-confirm>
+		
+		<view style="height: 200rpx;"></view>
+	</view>
+</template>
+
+<script>
+	import MyNavBar from '@/components/my-ui/my-nav-bar.vue';
+	import MyAvatar from '@/components/my-ui/my-avatar.vue';
+	import MyListItem from '@/components/my-ui/my-list-item.vue';
+	import MyDivider from '@/components/my-ui/my-divider.vue';
+	import MyConfirm from '@/components/my-ui/my-confirm.vue'
+	import auth from '@/common/mixin/auth.js';
+	import { mapState } from 'vuex';
+	import { getGroupInfo, rename, updateNickname, quitGroup } from '@/api/group.js';
+	import { deleteChatMessage } from '@/api/chat.js'
+	export default {
+		mixins:[auth],
+		components: {
+			MyNavBar,
+			MyAvatar,
+			MyListItem,
+			MyDivider,
+			MyConfirm
+		},
+		data() {
+			return {
+				height: 0,
+				confirmText: '',
+				confirmType: "name", //修改群名称
+				list:[], //群成员
+				nickname: '', // 我在本群的昵称
+				detail:{
+					id:0, // 接收人/群 id
+					chat_type:'user', // 接收类型 user单聊 group群聊
+					avatar:'', // 接收人/群 头像
+					name:'', // 接收人/群 昵称
+				
+					istop:false, // 是否置顶
+					shownickname:false, // 是否显示昵称
+					nowarn:false, // 消息免打扰
+					strongwarn:false, // 是否开启强提醒
+					
+					user_id:0, // 群管理员id
+					remark:"", // 群公告
+					invite_confirm:0, // 邀请确认
+				},
+				group: {}, //群信息
+			}
+		},
+		computed: {
+			...mapState({
+				chat:state=>state.user.chat,
+				user:state=>state.user.user
+			}),
+			// 弹窗标题
+			confirmTitle(){
+				return this.confirmType === 'name' ? '群名称' : '昵称'
+			},
+			//是否为群主
+			isGroupUser() {
+				return this.user.id === this.group.user_id
+			}
+		},
+		onLoad(e) {
+			if(!e.params){
+				return this.backToast()
+			}
+			let detail = JSON.parse(e.params)
+			// console.log(detail,'xx')
+			this.detail = detail
+			// 获取当前会话详细资料
+			this.chat.getChatListItem2(detail.id,detail.chat_type).then((res) => {
+				this.detail = res
+			})
+			
+			let res = uni.getSystemInfoSync()
+			this.height = res.windowHeight
+			if (detail.chat_type === 'group') {
+				this.getGroupInfo(detail.id)
+			}
+		},
+		onShow() {
+			// 如果为群聊
+			if (this.detail.chat_type === 'group') {
+				this.getGroupInfo(this.detail.id)
+			}
+		},
+		methods: {
+			openMail() {
+				let params = this.detail.chat_type === 'user' ? '?type=createGroup' : '?type=inviteGroup&id='+this.detail.id
+				uni.navigateTo({
+					url:'/pages/mail/mail/mail' + params,
+					complete:() => {
+						uni.$emit('getDataList', this.list)
+					}
+				})
+			},
+			toRemark() {
+				uni.navigateTo({
+					url:`/pages/chat/group-remark/group-remark?params=${encodeURIComponent(JSON.stringify({id:this.detail.id, remark: this.detail.remark}))}`
+				})
+			},
+			toQrCode() {
+				uni.navigateTo({
+					url:`/pages/my/code/code?params=${encodeURIComponent(JSON.stringify(
+					{
+					  id: this.detail.id, 
+					  name: this.detail.name,
+					  avatar: this.detail.avatar
+					}
+					))}&type=group`
+				})
+			},
+			// 修改指定会话
+			updateChatItem(e, key){
+				this.detail[key] = e.detail.value
+				this.chat.updateChatItem({
+					id: this.detail.id,
+					chat_type: this.detail.chat_type
+				},this.detail)
+			},
+			// 修改群名称
+			updateName(){
+				this.confirmType = 'name'
+				this.confirmText = this.detail.name
+				this.$refs.confirm.show((close)=>{
+					if(this.confirmText == ''){
+						return uni.showToast({
+							title: '群名称不能为空',
+							icon: 'none'
+						});
+					}
+					rename({
+						id: this.detail.id,
+						name: this.confirmText
+					}).then(res=>{
+						uni.showToast({
+							title: '修改成功',
+							icon: 'none'
+						});
+						this.detail.name = this.confirmText
+						close()
+					})
+				})
+			},
+			// 修改我在本群的昵称
+			updateNickname() {
+				this.confirmType = 'nickname'
+				this.confirmText = this.nickname
+				this.$refs.confirm.show((close)=>{
+					updateNickname({
+						id: this.detail.id,
+						nickname: this.confirmText
+					}).then(res=>{
+						uni.showToast({
+							title: '修改成功',
+							icon: 'none'
+						});
+						this.nickname = this.confirmText
+						close()
+					})
+				})
+			},
+			// 获取群信息
+			getGroupInfo(id) {
+				getGroupInfo(id).then(res => {
+					const list = res.group_users.map(v => {
+						if (v.user_id === this.user.id) {
+							this.nickname = v.nickname
+						}
+						return {
+							id: v.user_id,
+							name: v.nickname || v.user.nickname || v.user.username,
+							avatar:v.user.avatar
+						}
+					})
+					this.list = list
+					this.detail.remark = res.remark
+					this.group = res
+				}).catch((err) => {
+					uni.showToast({
+						icon:'none',
+						title:err
+					})
+					setTimeout(() => {
+						uni.navigateBack({delta:1})
+					},1000)
+				})
+			},
+			// 解散群聊或退出群聊
+			quitGroup() {
+				uni.showModal({
+					content: this.isGroupUser ? '是否解散该群聊?' : '是否退出该群聊?',
+					success: res => {
+						if (res.confirm) {
+							quitGroup({id: this.detail.id}).then(res => {
+								// 如果不是群主
+								if(!this.isGroupUser) {
+									// 修改当前聊天的状态
+									this.detail.quit_group = true
+									this.chat.updateChatItem({ id: this.detail.id,chat_type: this.detail.chat_type },this.detail)
+								}
+								// 返回首页
+								setTimeout(() => {
+									uni.switchTab({
+										url:'/pages/tabbar/index/index'
+									})
+								}, 1000)
+							})
+						}
+					}
+				});
+			},
+			// 删除聊天记录
+			deleteHistory() {
+				uni.showModal({
+					content: '此操作将清空聊天记录',
+					success: res => {
+						if (res.confirm) {
+							this.detail.update_time = '' // 修改时间
+							this.detail.data = '' // 修改聊天内容
+							this.detail.noreadnum = 0
+							this.chat.updateChatItem({ id: this.detail.id,chat_type: this.detail.chat_type },this.detail)
+							this.chat.deleteChatTable(this.detail.id, this.detail.chat_type)
+						}
+					}
+				});
+			},
+			// 删除双方聊天记录
+			deleteBothHistory() {
+				uni.showModal({
+					content: '此操作将清空双方聊天记录',
+					success: res => {
+						if (res.confirm) {
+							this.detail.update_time = '' // 修改时间
+							this.detail.data = '' // 修改聊天内容
+							this.detail.noreadnum = 0
+							this.chat.updateChatItem({ id: this.detail.id,chat_type: this.detail.chat_type },this.detail)
+							this.chat.deleteChatTable(this.detail.id, this.detail.chat_type)
+							deleteChatMessage({ to_id: this.detail.id, from_id: this.user.id, chat_type: this.detail.chat_type })
+						}
+					}
+				});
+			},
+			toHistory() {
+				uni.navigateTo({
+					url: `/pages/chat/chat-history/chat-history?id=${this.detail.id}&chat_type=${this.detail.chat_type}`
+				})
+			},
+			deleteUser(){
+				uni.navigateTo({
+					url: '../group-user/group-user?id='+this.detail.id,
+				});
+			},
+			openUser(id) {
+				uni.navigateTo({
+					url: `/pages/mail/user-base/user-base?user_id=${id}`
+				});
+			},
+		}
+	}
+</script>
+
+<style>
+
+</style>

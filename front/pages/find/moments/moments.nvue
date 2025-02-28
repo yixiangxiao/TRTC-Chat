@@ -1,0 +1,446 @@
+<template>
+	<view >
+		<!-- 渐变导航 -->
+		<my-transparent-bar :scrollTop="scrollTop" @clickRight="clickRight" :self="self"></my-transparent-bar>
+		<view class="position-relative" :style="'height:' + backgroundFatherHeight + 'rpx'" @click="backgroundClick">
+			<image ref="cover" :src="momentcover" mode="aspectFill"
+				style="height:590rpx" class="bg-secondary w-100"></image>
+
+			<template v-if="!clickBackground">
+				<image @click="openUser" :src="avatar" style="width: 120rpx;height: 120rpx;right:30rpx" mode="aspectFill"
+					class="bg-secondary rounded position-absolute bottom-0"></image>
+				<text class="text-white font-md position-absolute" style="bottom: 45rpx;right: 160rpx;">{{nickname}}</text>
+			</template>
+			
+			<view v-if="clickBackground" @click="changeBackground" class="bg-white position-absolute flex align-center" style="right: 30rpx;bottom: 50rpx;border-radius: 5rpx;height: 50rpx;">
+				<text class="iconfont font-lg py-1 pl-1">&#xe608;</text>
+				<text class="iconfont font py-1 pr-1">换封面</text>
+			</view>
+		</view>
+
+		<!-- 朋友圈列表 -->
+			<my-moment-list v-for="(item, index) in list" :key="item.id" :item="item" :index="index"
+				@action="doAction" @deleteComment="deleteComment" @reply="replyEvent" :getData="getData" :self="self"></my-moment-list>
+
+		<!-- 评论框 -->
+		<my-pop-up ref="comment" fix-bottom :is-need-animate="false">
+			<!-- #ifdef APP-PLUS-NVUE -->
+			<view class="position-fixed left-0 right-0" :style="'bottom:' + keyboardHeight + 'px'">
+				<view class="bg-light border-top flex align-center px-3" style="height: 105rpx;">
+					<textarea  :adjust-position="false"  ref="textarea" class="bg-white rounded p-2 font-md" style="height: 80rpx;width: 520rpx;"
+						v-model="content" :focus="true" :cursor="cursor" @click="onFocus"></textarea>
+					<my-icon-button :icon="'\ue605'" @click="clickEmoji"></my-icon-button>
+					<my-main-button @click="send" name="发送" :disabled="content.length === 0"></my-main-button>
+				</view>
+			</view>
+			<!-- #endif -->
+
+			<!-- #ifdef MP -->
+			<view class="position-fixed left-0 right-0" :style="'bottom:' + keyboardHeight + 'px'">
+			   <view class="bg-light border-top flex align-center" style="height: 105rpx;">
+				  <textarea ref="textarea" class="bg-white rounded p-2 font-md" style="height: 80rpx;width: 520rpx;"
+					  v-model="content" :focus="true" :cursor="cursor" @blur="onBlur" @click="onFocus"></textarea>
+				  <my-icon-button :icon="'\ue605'" @click="clickEmoji"></my-icon-button>
+				  <my-main-button @click="send" name="发送" :disabled="content.length === 0"></my-main-button>
+			   </view>
+			</view>
+			<!-- #endif -->
+			<view v-if="isShowEmoji">
+				<emoji @sendEmoji="sendEmoji" @deleteEmoji="deleteEmoji"></emoji>
+			</view>
+		</my-pop-up>
+	</view>
+</template>
+
+<script>
+	import MyTransparentBar from '@/components/my-ui/my-transparent-bar.vue';
+	import MyMomentList from '@/components/my-ui/my-moment-list.vue';
+	import MyPopUp from '@/components/my-ui/my-pop-up.vue';
+	import MyIconButton from '@/components/my-ui/my-icon-button.vue';
+	import MyMainButton from '@/components/my-ui/my-main-button.vue';
+	import emoji from '@/components/emoji.vue';
+	import { mapState } from 'vuex';
+	import $U from '@/common/lib/util.js';
+	import { timeline, momentList, like, comment, deleteComment } from '@/api/moment.js';
+	import { updateCover } from '@/api/user.js';
+	import { upload } from '@/api/chat.js';
+	// #ifdef APP-PLUS-NVUE
+	const dom = weex.requireModule('dom')
+	const animation = weex.requireModule('animation');
+	// #endif
+	export default {
+		components: {
+			MyTransparentBar,
+			MyMomentList,
+			MyPopUp,
+			MyIconButton,
+			MyMainButton,
+			emoji
+		},
+		computed: {
+			...mapState({
+				user:state=>state.user.user
+			}),
+			avatar(){
+				let avatar = ''
+				avatar = !this.params ? this.user.avatar : this.params.avatar
+				return avatar || '/static/images/userpic.png'
+			},
+			nickname(){
+				if(!this.params){
+					return this.user.nickname || this.user.username
+				}
+				return this.params.name
+			},
+			momentcover() {
+				if(!this.params){
+					return this.backgroundUrl || this.user.momentcover || '/static/images/user/momentcover.jpg'
+				}
+				return this.params.momentcover || '/static/images/user/momentcover.jpg'
+			}
+		},
+		data() {
+			return {
+				content: "",
+				cursor: 0,
+				end: 0,
+				isShowEmoji: false,
+				dataIndex: 0,
+				scrollTop: 0,
+				list: [],
+				page:1,
+				loadmore:"上拉加载更多",
+				key: 'momment_timeline',
+				reply_user: null,
+				params: null,
+				self: 'me',
+				clickBackground: false,
+				backgroundUrl: '',
+				backgroundFatherHeight: 620,
+				keyboardHeight: 0
+			}
+		},
+		onPageScroll(e) {
+			this.scrollTop = e.scrollTop
+			if(this.scrollTop > 100) {
+				this.clickBackground = false
+			}
+		},
+		onLoad(e) {
+			if(e.key){
+				this.key = e.key
+			}
+			if(e.params){
+				this.params = JSON.parse(decodeURIComponent(e.params))
+			}
+			if (e.self) {
+				this.self = e.self
+			}
+			this.page = 1
+			this.getData()
+			
+			uni.$on('momentNotice',this.momentNotice)
+		},
+		onShow() {
+			if (this.key === 'momment_timeline') {
+				$U.setStorage('isCurrentMoment', true) //是否处于朋友圈页面
+			}
+		},
+		mounted() {
+			//监听键盘高度变化
+			uni.onKeyboardHeightChange(this.keyboardHeightChange)
+		},
+		beforeDestroy() {
+			uni.$off('momentNotice',this.momentNotice)
+			uni.offKeyboardHeightChange(this.keyboardHeightChange)
+			$U.setStorage('isCurrentMoment', false) //是否处于朋友圈页面
+		},
+		onPullDownRefresh() {
+			this.page = 1
+			this.getData().then(res=>{
+				uni.showToast({
+					title: '刷新成功',
+					icon: 'none'
+				});
+				uni.stopPullDownRefresh()
+			}).catch(err=>{
+				uni.showToast({
+					title: '刷新失败',
+					icon: 'none'
+				});
+				uni.stopPullDownRefresh()
+			})
+		},
+		onReachBottom() {
+			if(this.loadmore !== '上拉加载更多'){
+				return
+			}
+			this.page += 1
+			this.loadmore = '加载中...'
+			this.getData().catch(err=>{
+				this.page -= 1
+				uni.showToast({
+					title: '加载失败',
+					icon: 'none'
+				});
+				this.loadmore = '上拉加载更多'
+			})
+		},
+		methods: {
+			openUser(e, id) {
+				// #ifdef APP-PLUS-NVUE
+				e.stopPropagation();
+				// #endif
+				uni.navigateTo({
+					url: `/pages/mail/user-base/user-base?user_id=${this.user.id}`
+				});
+			},
+			//选择发表朋友圈类型
+			clickRight(){
+				let list = [
+					{name: "图文", key: "image"},
+					{name: "短视频", key: "video"},
+					{name: "文字", key: "content"},
+				]
+				uni.showActionSheet({
+					itemList: list.map(v => v.name),
+					success:(res) => {
+						uni.navigateTo({
+							url:'/pages/find/add-moment/add-moment?type=' + list[res.tapIndex].key
+						})
+					}
+				})
+			},
+			// 键盘高度变化
+			keyboardHeightChange(res) {
+				this.keyboardHeight = res.height
+			},
+			onFocus() {
+				this.isShowEmoji = false
+			},
+			onBlur(e) {
+				const {
+					cursor
+				} = e.detail
+				this.end = cursor
+			},
+			clickEmoji() {
+				this.isShowEmoji = !this.isShowEmoji
+				uni.hideKeyboard()
+			},
+			sendEmoji(emoji) {
+				//#ifdef APP-PLUS-NVUE
+				//获取光标位置
+				this.$refs.textarea.getSelectionRange(res => {
+					// 将字符串转换为字符数组
+					const arr = this.content.split("");
+					// 在指定位置插入字符
+					arr.splice(res.selectionEnd, 0, emoji);
+					// 转换回字符串
+					var newStr = arr.join("");
+					//发送文字表情
+					this.content = newStr;
+					//回复光标位置 每个表情的长度为2所以光标后移动2
+					this.cursor = res.selectionEnd + emoji.length
+				})
+				// #endif
+
+				//#ifdef MP
+				// 将字符串转换为字符数组
+				const arr = this.content.split("");
+				// 在指定位置插入字符
+				arr.splice(this.end, 0, emoji);
+				// 转换回字符串
+				var newStr = arr.join("");
+				//发送文字表情
+				this.content = newStr;
+				this.end = this.end + emoji.length
+				// #endif
+
+			},
+			//输入框删除文字表情Array.form会将我们的字符串拆分为数组，而它对emoji处理为单个元素
+			deleteEmoji() {
+				let strArr = Array.from(this.content);
+				strArr.pop();
+				this.content = strArr.join('');
+				this.cursor = this.cursor - 2
+			},
+			getData(){
+				let page = this.page
+				let param = {}
+				// 默认是时间线接口
+				let fn = timeline
+				// 如果key为moment则换momentList接口
+				if (this.key === 'moment') {
+					fn = momentList
+				}
+				// mommentList接口须带上user_id 为自己时不需要带上，后端默认有
+				if(this.params && this.key === 'moment' && this.self !== 'me'){
+					param = { user_id: this.params.id }
+				}
+				return new Promise((result,reject)=>{
+					fn({ page, ...param }).then(res=>{
+						this.list = page === 1 ? res : [...this.list,...res]
+						this.loadmore = this.list.length === (page * 10) ? '上拉加载更多' : '没有更多了'
+						result(res)
+					}).catch(err=>{
+						reject(err)
+					})
+				})
+			},
+			momentNotice(){
+				this.page = 1
+				this.getData().then(res=>{
+					uni.showToast({
+						title: '刷新成功',
+						icon: 'none'
+					});
+				})
+			},
+			//点赞评论
+			doAction(e) {
+				this.dataIndex = e.index
+				uni.showActionSheet({
+					itemList: ['点赞', '评论'],
+					success: (res) => {
+						const {
+							tapIndex
+						} = res
+						if (tapIndex === 0) {
+							//点赞
+							this.doSupport(e)
+						} else {
+							//评论
+							this.content = ""
+							this.isShowEmoji = false
+							this.$refs.comment.show()
+							this.reply_user = null
+						}
+					}
+				})
+			},
+			//点赞
+			doSupport(e) {
+				like({ id: e.item.moment_id }).then((res) => {
+					let i = e.item.likes.findIndex(item=>item.id === this.user.id)
+					if(i !== -1){ // 取消点赞
+						e.item.likes.splice(i,1)
+					} else { // 点赞
+						e.item.likes.push({
+							id:this.user.id,
+							name:this.user.nickname || this.user.username
+						})
+					}
+					uni.showToast({
+						title: i !== -1 ? '取消点赞成功' : '点赞成功',
+						icon: 'none'
+					});
+				})
+			},
+			//发送评论
+			send() {
+				let item = this.list[this.dataIndex]
+				comment({
+					id: item.moment_id,
+					content: this.content,
+					reply_id: this.reply_user ? this.reply_user.id : 0
+				}).then(res=>{
+					item.comments.push({
+						id: res.id,
+						content:this.content,
+						user:{
+							id:this.user.id,
+							name:this.user.nickname || this.user.username
+						},
+						reply: this.reply_user ? this.reply_user : null
+					})
+					uni.showToast({
+						title: '评论成功',
+						icon: 'none'
+					});
+				})
+				this.$refs.comment.hide()
+			},
+			// 删除评论deleteComment
+			deleteComment(params, index) {
+				let item = this.list[index]
+				const comIndex = item.comments.findIndex(v => v.id === params.comment_id)
+				deleteComment(params).then(res => {
+					item.comments.splice(comIndex, 1)
+				})
+			},
+			replyEvent(e){
+				// 不能评论自己
+				if(e.reply.id === this.user.id) return
+				this.content = ''
+				this.dataIndex = e.index
+				this.reply_user = e.reply
+				this.isShowEmoji = false
+				this.$refs.comment.show()
+			},
+			// 点击封面
+			backgroundClick() {
+				if (this.self === 'he') return
+				this.clickBackground = !this.clickBackground
+				if(this.clickBackground) {
+					this.backgroundFatherHeight = 920
+					this.$nextTick(() => {
+						animation.transition(
+							this.$refs.cover, {
+								styles: {
+									height: '890rpx'
+								},
+								duration: 500, //ms
+								timingFunction: 'ease',
+								needLayout: false,
+								delay: 0 //ms
+							},
+							() => {}
+						);
+					})
+					
+				} else {
+					this.backgroundFatherHeight = 620
+					this.$nextTick(() => {
+						animation.transition(
+							this.$refs.cover, {
+								styles: {
+									height: '590rpx'
+								},
+								duration: 500, //ms
+								timingFunction: 'ease',
+								needLayout: false,
+								delay: 0 //ms
+							},
+							() => {}
+						);
+					})
+				}
+			},
+			// 更换封面
+			changeBackground(e) {
+				// #ifdef APP-PLUS-NVUE
+				e.stopPropagation();
+				// #endif
+				uni.chooseImage({
+					count: 1,
+					success: async (res) => {
+						for(let i = 0; i < res.tempFilePaths.length; i++) {
+							const uploadResult = await upload({ filePath: res.tempFilePaths[i], bucket: 'moments' })
+							this.backgroundUrl = uploadResult.url
+							await updateCover({ momentcover: uploadResult.url })
+							// 更改本地
+							this.$store.commit('user/updateUser',{ k: 'momentcover', v: uploadResult.url })
+							this.$store.dispatch('user/updateUser') //更新用户信息
+						}
+						
+					}
+				})
+			}
+		}
+	}
+</script>
+
+<style>
+
+</style>

@@ -1,0 +1,206 @@
+<template>
+	<view style="overflow-y: scroll;background-color: #EDEDED;" :style="'min-height:'+ height + 'px'">
+		<!-- 导航栏 -->
+		<my-nav-bar is-show-back :is-show-right="false" @back="back" :is-need-back="false">
+			<input type="text" v-model="keyword" :placeholder="placeholder" style="width: 650rpx;" 
+			class="font-md" @confirm="search">
+		</my-nav-bar>
+
+		<view v-if="searchType === ''">
+			<view class="py-5 flex align-center justify-center">
+				<text class="font text-light-muted">搜索指定内容</text>
+			</view>
+			
+			<view class="px-4 flex flex-wrap">
+				<view class="flex align-center justify-center mb-3 border-left" style="width: 220rpx;"
+				v-for="(item, index) in typeList" :key="index" @click="searchType = item.key">
+					<text class="font text-hover-primary">{{item.name}}</text>
+				</view>
+			</view>
+		</view>
+		
+		<view v-if="searchType === 'chatList'">
+			<my-list-item v-for="(item, index) in list" :key="index" :title="item.name"
+			:imgUrl="item.avatar || '/static/images/userpic.png'" @click="toChat(item)"></my-list-item>
+		</view>
+		
+		<view v-if="searchType === 'history'">
+			<my-list-item v-for="(item, index) in history" :key="index" :title="item.name"
+			:imgUrl="item.avatar || '/static/images/userpic.png'" :is-show-right="true" @click="toHistory(item)">
+			<text slot="right" class="font-sm text-muted">{{item.children.length}}条相关记录</text>
+			</my-list-item>
+		</view>
+		
+		<view v-if="searchType === 'friend'">
+			<my-list-item v-for="(item, index) in list" :key="index" :title="item.name"
+			:imgUrl="item.avatar || '/static/images/userpic.png'" @click="getUserInfo(item.user_id)"></my-list-item>
+		</view>
+		
+	</view>
+</template>
+
+<script>
+	import MyNavBar from '@/components/my-ui/my-nav-bar.vue';
+	import MyListItem from '@/components/my-ui/my-list-item.vue';
+	import DB from '@/common/lib/sqLite.js';
+	import { mapState } from 'vuex';
+	export default {
+		components: {
+			MyNavBar,
+			MyListItem
+		},
+		data() {
+			return {
+				typeList: [
+					{
+						name: "聊天记录",
+						key: "history"
+					},
+					{
+						name: "会话列表",
+						key: "chatList"
+					},
+					{
+						name: "好友",
+						key: "friend"
+					}
+				],
+				searchType:"",
+				keyword: '',
+				list: [],
+				history: [],
+				height: 0,
+			}
+		},
+		onLoad() {
+			let res = uni.getSystemInfoSync()
+			this.height = res.windowHeight
+		},
+		computed:{
+			...mapState({
+				user: state => state.user.user,
+				chat: state => state.user.chat,
+				chatList: state => state.user.chatList,
+				mailList: state => state.user.mailList,
+			}),
+			placeholder(){
+				let obj = this.typeList.find(item => item.key === this.searchType)
+				if(obj){
+					return  '搜索' + obj.name
+				}
+				return '请输入关键字'
+			}
+		},
+		methods: {
+			back(){
+				if(this.searchType === ''){
+					uni.navigateBack({
+						delta:1
+					})
+				}
+				this.searchType = ''
+				this.list = []
+			},
+			async search(){
+				this.list = []
+				if (this.searchType === 'chatList') {
+					const res = this.chatList.filter( v => (v.name.indexOf(this.keyword) !== -1))
+					this.list = res
+				} else if (this.searchType === 'history') {
+					for (let i = 0; i < this.chatList.length; i ++) {
+						const item = this.chatList[i]
+						const table = `chat_${this.user.id}_${item.chat_type}_${item.id}`;
+						const sql = `SELECT * FROM ${table} WHERE type = 'text' AND LOWER(data) LIKE LOWER('%${this.keyword}%') AND isremove != 1;`
+						const data = await DB.selectSql(sql)
+						const results = data.map(result => {
+							let nodes = [];
+							let startIndex = 0;
+							const text = result.data
+							let index = text.indexOf(this.keyword);
+							
+							while (index !== -1) {
+							  // 添加不需要变化的文本节点
+							  if (index > startIndex) { // 如果关键字索引大于开始索引，则开始索引-关键字之前索引是不需要变化的
+							    nodes.push({
+							      type: 'text',
+							      text: text.substring(startIndex, index)
+							    });
+							  }
+							
+							  // 添加需要变红的文本节点
+							  nodes.push({
+							    name: 'span',
+							    attrs: {
+							      style: 'color: #08C060;'
+							    },
+							    children: [
+							      {
+							        type: 'text',
+							        text: this.keyword
+							      }
+							    ]
+							  });
+							
+							  startIndex = index + this.keyword.length;
+							  index = text.indexOf(this.keyword, startIndex);
+							}
+							
+							// 添加剩余的不需要变化的文本节点
+							if (startIndex < text.length) {
+							  nodes.push({
+							    type: 'text',
+							    text: text.substring(startIndex)
+							  });
+							}
+							result.nodes = nodes
+							return result
+						});
+						
+						if (results.length > 0) {
+							this.history.push({ avatar: item.avatar, id: item.id, chat_type: item.chat_type, name: item.name, children: results })
+						}
+						
+					}
+					
+				} else if(this.searchType === 'friend') {
+					const list = []
+					this.mailList.forEach(v => {
+						list.push(...v.list)
+					})
+					const res = list.filter(v => (v.name.indexOf(this.keyword) !== -1))
+					this.list = res
+				}
+			},
+			
+			toChat(item) {
+				uni.navigateTo({
+					url: `/pages/chat/chat?params=${encodeURIComponent(JSON.stringify({
+						id: item.id,
+						name: item.name,
+						avatar: item.avatar,
+						chat_type: item.chat_type
+					}))}`
+				})
+			},
+			toHistory(item) {
+				uni.navigateTo({
+					// url: `/pages/chat/chat-history/chat-history?type=global&id=${item.id}&chat_type=${item.chat_type}&children=${encodeURIComponent(JSON.stringify(item.children))}`,
+					url: `/pages/chat/chat-history/chat-history?type=global&id=${item.id}&chat_type=${item.chat_type}`,
+					success: () => {
+						uni.$emit('getChatHistory', item.children)
+					}
+				})
+			},
+			//获取用户资料
+			getUserInfo(id) {
+				uni.navigateTo({
+					url:'/pages/mail/user-base/user-base?user_id='+ id
+				})
+			}
+		}
+	}
+</script>
+
+<style>
+
+</style>

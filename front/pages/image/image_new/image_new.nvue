@@ -1,0 +1,43 @@
+<template>
+	<view class="position-relative" style="flex:1;">
+		<web-view ref="webview" @onPostMessage="handlePostMessage" @pagefinish="onPageFinish" style="flex:1;" :src="webviewSrc"></web-view>
+	</view>
+</template>
+
+<script>
+	export default {
+		data() {
+			return {
+				webviewStyles: {},
+				imageUrl: '',
+				webviewSrc: "/hybrid/html/cropper_new/index.html",
+				wv: null,
+				options: {}
+			};
+		},
+
+		onLoad(e) {
+			this.options.imageUrl = e.url
+		},
+
+		mounted() {
+			// #ifdef APP-PLUS-NVUE
+			this.wv = this.$refs.webview;
+			// #endif
+		},
+
+		methods: {
+			onPageFinish() {
+				this.wv.evalJS("getInitData('" + JSON.stringify(this.options) + "')");
+				// console.log('加载完毕', this.options);
+			},
+			handlePostMessage(event) {
+				console.log(event, '接收到来自webview的信息');
+				uni.$emit('getImage', event.detail.data[0].dataUrl)
+				uni.navigateBack({delta:1})
+			}
+		},
+	};
+</script>
+
+<style></style>

@@ -1,0 +1,120 @@
+<template>
+	<view style="overflow-y: scroll;background-color: #EDEDED;" :style="'min-height:'+ height + 'px'">
+		<!-- 导航栏 -->
+		<my-nav-bar title="群聊列表" is-show-back :is-show-right="false">
+		</my-nav-bar>
+		
+		<view ref="box">
+			<my-list-item v-for="(item,index) in list" :key="index"
+				:title="item.name"
+				:imgUrl="item.avatar ||  '/static/images/userpic.png'" :is-show-right="true"
+				:is-show-right-icon="true" @click="handle(item)">
+			</my-list-item>
+		</view>
+
+		<!-- 上拉加载 -->
+		<view class="flex align-center justify-center py-5 bg-light" v-if="showLoadMore">
+			<text class="text-muted font">{{loadmore}}</text>
+		</view>
+	</view>
+</template>
+
+<script>
+	import MyNavBar from '@/components/my-ui/my-nav-bar.vue';
+	import MyListItem from '@/components/my-ui/my-list-item.vue';
+	import auth from '@/common/mixin/auth.js';
+	import { getGroupList } from '@/api/group.js';
+	import { mapState } from 'vuex';
+	// #ifdef APP-PLUS-NVUE
+	const dom = weex.requireModule('dom')
+	// #endif
+	export default {
+		mixins: [auth],
+		components: {
+			MyNavBar,
+			MyListItem
+		},
+		data() {
+			return {
+				page: 1,
+				boxHeight: 0,
+				bodyHeight: 0,
+				height: 0,
+				list: [],
+				loadmore: "上拉加载更多", // 没有更多了，加载中...
+			}
+		},
+		computed: {
+			showLoadMore() {
+				if (this.bodyHeight < this.boxHeight) {
+					return true
+				}
+				return false
+			},
+		},
+		mounted() {
+			dom.getComponentRect(this.$refs.box, (option) => {
+			    this.boxHeight = option.size.height;
+				let res = uni.getSystemInfoSync()
+				this.bodyHeight = res.windowHeight - res.statusBarHeight - uni.upx2px(90)
+			});
+		},
+		onLoad() {
+			let res = uni.getSystemInfoSync()
+			this.height = res.windowHeight
+		},
+		onShow() {
+			this.page = 1
+			this.loadmore = '上拉加载更多'
+			getGroupList({}).then(res => {
+				this.list = res
+			})
+		},
+		// 监听下拉刷新
+		onPullDownRefresh() {
+			this.page = 1
+			this.loadmore = '上拉加载更多'
+			getGroupList({page: this.page}).then(res => {
+				uni.showToast({
+					title: '刷新成功',
+					icon: 'none'
+				});
+				uni.stopPullDownRefresh()
+			})
+		},
+		// 监听触底事件
+		onReachBottom() {
+			// console.log('触底')
+			if (this.loadmore !== '上拉加载更多') {
+				return;
+			}
+			this.loadmore = '加载中...'
+			this.page = this.page + 1
+			getGroupList({page: this.page}).then(res => {
+				// 每页10条，每页满了才有下一页 比如第一页10条，第二页4条 此时第二页没满，表示没有下一页了
+				// list的长度等于页码*10 当前页满了才需要加载下一页
+				this.list = [...this.list, ...res]
+				this.loadmore = this.list.length == this.page * 10 ? '上拉加载更多' : '没有更多了'
+			}).catch(err => {
+				this.page = this.page - 1
+				this.loadmore = '上拉加载更多'
+			})
+		},
+		methods: {
+			handle(item) {
+				uni.navigateTo({
+					url: `/pages/chat/chat?params=${encodeURIComponent(JSON.stringify({
+						id: item.id,
+						name: item.name,
+						avatar: item.avatar,
+						chat_type: 'group'
+					}))}`
+				})
+			}
+		}
+	}
+</script>
+
+<style>
+
+</style>

@@ -1,0 +1,72 @@
+<template>
+	<view>
+		<!-- 导航栏 -->
+		<my-nav-bar title="群公告" is-show-back is-show-right bg-color="bg-white">
+			<my-main-button name="推送" slot="right" @click="submit"></my-main-button>
+		</my-nav-bar>
+
+		<textarea v-model="remark" placeholder="请填写群公告" class="bg-white p-2 font-md" :style="'min-height:'+ height + 'px'"></textarea>
+	</view>
+</template>
+
+<script>
+	import MyNavBar from '@/components/my-ui/my-nav-bar.vue';
+	import MyMainButton from '@/components/my-ui/my-main-button.vue';
+	import auth from '@/common/mixin/auth.js';
+	import { remark } from '@/api/group.js';
+	export default {
+		mixins: [auth],
+		components: {
+			MyNavBar,
+			MyMainButton
+		},
+		data() {
+			return {
+				remark: "",
+				id: null,
+				height: 0,
+			}
+		},
+		onLoad(e) {
+			let res = uni.getSystemInfoSync()
+			// #ifdef APP-PLUS-NVUE
+			this.statusBarHeight = plus.navigator.getStatusbarHeight();
+			// #endif
+			this.height = res.windowHeight - uni.upx2px(90) - this.statusBarHeight
+			if (!e.params) {
+				return this.backToast()
+			}
+			const params = JSON.parse(decodeURIComponent(e.params))
+			this.remark = params.remark
+			this.id = params.id
+		},
+		methods: {
+			submit() {
+				if (!remark) {
+					return uni.showToast({
+						icon: 'none',
+						title: '请输入群公告内容'
+					})
+				}
+				//请求服务器
+				remark({id: this.id, remark: this.remark}).then(res => {
+					uni.showToast({
+						icon: 'none',
+						title: '推送成功'
+					})
+					
+					setTimeout(()=>{
+						uni.navigateBack({
+							delta: 1
+						})
+					},1000)
+				})
+				
+			}
+		}
+	}
+</script>
+
+<style>
+
+</style>

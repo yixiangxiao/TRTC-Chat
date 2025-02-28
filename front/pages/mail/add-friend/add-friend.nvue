@@ -1,0 +1,108 @@
+<template>
+	<view class="page">
+		<!-- 导航栏 -->
+		<my-nav-bar is-show-back title="添加好友" :is-show-right="false"></my-nav-bar>
+		
+		<!-- 备注 -->
+		<view class="flex flex-column">
+			<text class="font-sm text-secondary px-3 py-2">备注名</text>
+			<input v-model="form.nickname" :maxlength="15" type="text" class="font-md border bg-white px-3"  style="height: 100rpx;" placeholder="请输入备注名">
+		</view>
+		
+		<my-divider></my-divider>
+		
+		<my-list-item title="让他看我" :is-show-right="true" :is-show-icon="false" :is-show-right-icon="false">
+			<!-- 如果为true切换的时候应该为0 -->
+			<switch slot="right" :checked="form.lookme ? true : false" color="#08C060" @change="form.lookme = form.lookme ? 0 : 1" />
+		</my-list-item>
+		<my-list-item title="看他" :is-show-right="true" :is-show-icon="false" :is-show-right-icon="false">
+			<switch slot="right" :checked="form.lookhim ? true : false" color="#08C060" @change="form.lookhim = form.lookhim ? 0: 1" />
+		</my-list-item>
+		
+		<view @click="submit" class="py-3 flex justify-center align-center bg-white" hover-class="bg-hover-light">
+			<text class="font-md text-primary">{{id ? '同意' : '点击添加'}}</text>
+		</view>
+	</view>
+</template>
+
+<script>
+	import MyNavBar from '@/components/my-ui/my-nav-bar.vue';
+	import MyAvatar from '@/components/my-ui/my-avatar.vue';
+	import MyListItem from '@/components/my-ui/my-list-item.vue';
+	import MyDivider from '@/components/my-ui/my-divider.vue';
+	import { addFriend } from '@/api/friend.js';
+	import { applyHandle } from '@/api/apply.js';
+	import auth from '@/common/mixin/auth.js';
+	export default {
+		mixins: [auth],
+		components: {
+			MyNavBar,
+			MyAvatar,
+			MyListItem,
+			MyDivider
+		},
+		data() {
+			return {
+				form: {
+					friend_id: 0,
+					nickname: '',
+					lookhim: 1,
+					lookme: 1
+				},
+				id: null
+			}
+		},
+		onLoad(e) {
+			if (e.params) {
+				this.form = JSON.parse(e.params)
+			}
+			
+			if(e.id) {
+				this.id = e.id
+			}
+			
+		},
+		methods: {
+			submit() {
+				//添加好友
+				if(!this.id) {
+					return addFriend(this.form).then(res =>{
+						if (res) {
+							uni.showToast({
+								icon:'none',
+								title:'申请成功'
+							})
+							
+							setTimeout(() => {
+								uni.navigateBack({
+									delta:1
+								})
+							}, 1000)
+						}
+					})
+				}
+				
+				//处理好友申请
+				applyHandle(this.id, {
+					...this.form,
+					status: 'agree'
+				}).then(res => {
+						uni.showToast({
+							icon:'none',
+							title:'操作成功'
+						})
+						this.$store.dispatch('user/getMailList')
+						setTimeout(() => {
+							uni.navigateBack({
+								delta:1
+							})
+						}, 1000)
+				})
+			}
+		}
+	}
+</script>
+
+<style>
+
+</style>

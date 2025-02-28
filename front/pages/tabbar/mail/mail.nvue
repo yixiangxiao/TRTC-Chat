@@ -1,0 +1,155 @@
+<template>
+	<view>
+		<!-- 导航栏 -->
+		<my-nav-bar title="通讯录"></my-nav-bar>
+		<!-- 通讯录列表 -->
+		<scroll-view scroll-y :show-scrollbar="false" :style="'height:' + scrollHeight + 'px'" :scroll-into-view="scrollInto">
+			<my-list-item v-for="(item, index) in mailList" :key="item.tag" @click="click(item.event)"
+				:img-url="item.imgUrl" :title="item.title" :is-show-right="item.tag === 'friend' && applyCount > 0">
+				<my-badge v-if="item.tag === 'friend' && applyCount > 0" slot="right" :num="applyCount"></my-badge>
+			</my-list-item>
+			<view v-for="(item,index) in list" :key="index" :id=" 'item-' + item.title">
+				<view v-if="item.list.length > 0" class="py-2 px-3 border-bottom bg-light">
+					<text class="font-md text-dark">{{item.title}}</text>
+				</view>
+				<my-list-item v-for="(item2, index2) in item.list" :key="index2.id"
+					:img-url="item2.avatar ? item2.avatar : '/static/images/userpic.png'" 
+					:title="item2.name" 
+					@click="navigate('mail/user-base/user-base?user_id='+item2.user_id)">
+				</my-list-item>
+			</view>
+		</scroll-view>
+
+		<!-- 侧边栏 -->
+		<view class="position-fixed right-0 bottom-0 bg-white flex flex-column" :style="'top:' + top + 'px'"
+			style="width: 50rpx;" @touchstart="touchstart" @touchmove="touchmove" @touchend="touchend">
+			<view v-for="(item,index) in list" :key="index" class="flex-1 flex align-center justify-center">
+				<text class="font-sm text-muted">{{item.title}}</text>
+			</view>
+		</view>
+		
+		<!-- 字母提示 -->
+		<view class="position-fixed rounded-circle bg-light border flex align-center justify-center" v-if="current"
+		style="width: 150rpx;height: 150rpx;left: 300rpx;"
+		:style="'top:'+ modalTop +'px;'">
+			<text class="font-lg">{{current}}</text>
+		</view>
+	</view>
+</template>
+
+<script>
+	import MyNavBar from '@/components/my-ui/my-nav-bar.vue';
+	import MyListItem from '@/components/my-ui/my-list-item.vue';
+	import MyBadge from '@/components/my-ui/my-badge.vue';
+    import auth from '@/common/mixin/auth.js';
+	import { mapState } from 'vuex'
+	export default {
+		components: {
+			MyNavBar,
+			MyListItem,
+			MyBadge
+		},
+		mixins:[auth],
+		data() {
+			return {
+				scrollInto: '',
+				current:'',
+				top: 0,
+				scrollHeight: 0,
+				mailList: [{
+					    tag: 'friend',
+						imgUrl: '/static/images/mail/friend.png',
+						title: '新的朋友',
+						event: 'toFriend'
+					},
+					{
+						tag: 'group',
+						imgUrl: '/static/images/mail/group.png',
+						title: '群聊',
+						event: 'toGroup'
+					},
+					{
+						tag: 'tags',
+						imgUrl: '/static/images/mail/tag.png',
+						title: '标签',
+						event: 'toTagList'
+					}
+				]
+			};
+		},
+		onLoad() {
+			let res = uni.getSystemInfoSync()
+			this.top = res.statusBarHeight + uni.upx2px(90)
+			// #ifdef MP
+			this.top = uni.upx2px(90)
+			// #endif
+			this.scrollHeight = res.windowHeight - this.top
+			// 获取通讯录列表
+			this.$store.dispatch('user/getMailList')
+		},
+		computed: {
+			// ...mapState('user', ['apply']), //数组写法
+			...mapState({
+				applyCount: state => state.user.apply.count,
+				list: state => state.user.mailList
+			}), //对象写法
+			modalTop(){
+				return (this.scrollHeight - uni.upx2px(150)) / 2
+			},
+			//每个索引的高度
+			itemHeight() {
+				const count = this.list.length || 0
+				return this.scrollHeight / count
+			}
+		},
+		methods: {
+			click(event) {
+				switch (event) {
+					case 'toFriend':
+					uni.navigateTo({
+						url:'/pages/mail/apply-list/apply-list'
+					})
+						break;
+					case 'toGroup':
+					uni.navigateTo({
+						url:'/pages/mail/group-list/group-list'
+					})
+						break;
+					case 'toTagList' :
+					uni.navigateTo({
+						url:'/pages/mail/tag-list/tag-list'
+					})
+					   break;
+				}
+			},
+			touchstart(e) {
+				this.changeScrollInto(e)
+			},
+			touchend() {
+				this.current = ''
+			},
+			touchmove(e) {
+				this.changeScrollInto(e)
+			},
+
+			changeScrollInto(e) {
+				//触摸时的Y坐标
+				let Y = e.touches[0].pageY
+				// #ifdef MP
+				 Y = Y - uni.upx2px(90)
+				// #endif
+				
+				//计算索引
+				const index = Math.floor(Y / this.itemHeight)
+				const item = this.list[index]
+				// console.log(this.list[index].title)
+				if (item) {
+					this.scrollInto = 'item-' + item.title
+					this.current = item.title
+				}
+			}
+		}
+	};
+</script>
+
+<style></style>

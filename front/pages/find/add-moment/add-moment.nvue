@@ -1,0 +1,181 @@
+<template>
+	<view class="px-2">
+		<!-- 导航栏 -->
+		<my-nav-bar is-show-back bg-color="bg-white">
+			<my-main-button name="发表" slot="right" @click="submit"></my-main-button>
+		</my-nav-bar>
+		
+		<!-- 文字 -->
+		<textarea placeholder="这一刻的想法" v-model="content" class="p-2 font-md mb-3"></textarea>
+		
+		<!-- 图文 -->
+		<my-upload-image v-if="type === 'image'" :list="imageList" @updateImage="updateImage"></my-upload-image>
+		
+		<!-- 视频 -->
+		<view v-if="type === 'video' && !video" class="flex align-center justify-center bg-light rounded" style="height: 350rpx;" 
+		hover-class="bg-hover-light" @click="uploadVideo">
+			<text class="text-muted" style="font-size: 100rpx;">+</text>
+		</view>
+		<video v-if="type === 'video' && video && video.src" :poster="video.poster" :src="video.src" controls></video>
+		<view v-if="type === 'video' && video && video.src" class="my-3 flex align-center justify-center bg-light" 
+		hover-class="bg-hover-light" style="height: 100rpx;" 
+		@click="uploadVideo">
+			<text class="font-md text-muted">点击切换视频</text>
+		</view>
+		
+		<my-list-item title="所在位置" :is-show-right="true" :is-show-icon="false" @click="chooseLocation">
+			<text v-if="location" slot="right" class="font-md text-muted text-ellipsis">{{location.name}}</text>
+		</my-list-item>
+		
+		<my-list-item title="提醒谁看" :is-show-right="true" :is-show-icon="false"  @click="openRemind">
+			<view slot="right" class="flex">
+				<view class="ml-1" v-for="(item,index) in remindList" :key="index">
+					<my-avatar :src="item.avatar" size="50"></my-avatar>
+				</view>
+			</view>
+		</my-list-item>
+		
+		<my-list-item title="谁可以看" :is-show-right="true" :is-show-icon="false" @click="openSee">
+			<text slot="right" class="font-md">{{seeText}}</text>
+		</my-list-item>
+	</view>
+</template>
+
+<script>
+	import MyNavBar from '@/components/my-ui/my-nav-bar.vue';
+	import MyMainButton from '@/components/my-ui/my-main-button.vue';
+	import MyListItem from '@/components/my-ui/my-list-item.vue';
+	import MyUploadImage from '@/components/my-ui/my-upload-image.vue';
+	import MyAvatar from '@/components/my-ui/my-avatar.vue';
+	import { upload } from '@/api/chat.js';
+	import { create } from '@/api/moment.js';
+	export default {
+		components: {
+			MyNavBar,
+			MyMainButton,
+			MyListItem,
+			MyUploadImage,
+			MyAvatar
+		},
+		data() {
+			return {
+				content:'',
+				type:'image',
+				imageList:[],
+				video: null,
+				remindList:[],
+				seeObj: {
+					k:"all",
+					v:[]
+				},
+				location: null,
+			}
+		},
+		onLoad(e) {
+			this.type = e.type
+			uni.$on('sendResult',this.sendResult)
+		},
+		beforeDestroy() {
+			uni.$off('sendResult',this.sendResult)
+		},
+		computed: {
+			seeText() {
+				let type = {
+					all:"公开",
+					none:"私密",
+					only:"谁可以看",
+					except:"不给谁看"
+				}
+				if(this.seeObj.k === 'all' || this.seeObj.k === 'none'){
+					return type[this.seeObj.k]
+				}
+				let names = (this.seeObj.v.map(item=>item.name)).join(',')
+				return `${type[this.seeObj.k]}:${names}`
+			},
+			seeData(){
+				if(this.seeObj.k === 'all' || this.seeObj.k === 'none'){
+					return this.seeObj.k
+				}
+				let ids = (this.seeObj.v.map(item=>item.user_id)).join(',')
+				return `${this.seeObj.k}:${ids}`
+			}
+		},
+		methods: {
+			//发表
+			submit(){
+				create({
+					content: this.content,
+					image: this.imageList.join(','),
+					video: this.video ? JSON.stringify(this.video) : '',
+					type: this.type,
+					location: this.location ? JSON.stringify(this.location) : '',
+					remind:(this.remindList.map(item=>item.user_id)).join(','),
+					see: this.seeData,
+				}).then(res=>{
+					uni.showToast({
+						title: '发布成功',
+						icon: 'none'
+					});
+					uni.navigateBack({
+						delta: 1
+					});
+				})
+			},
+			sendResult(e){
+				if(e.type === 'remind'){
+					this.remindList = e.data
+				}
+				if(e.type === 'see'){
+					// 如果为私密
+					if (e.data.k === 'none') {
+						// 提醒谁看为空
+						this.remindList = []
+					}
+					this.seeObj = e.data
+				}
+			},
+			openRemind(){
+				uni.navigateTo({
+					url: '../../mail/mail/mail?type=remind',
+				});
+			},
+			openSee(){
+				uni.navigateTo({
+					url: '../../mail/mail/mail?type=see',
+				});
+			},
+			//获取图片
+			updateImage(list){
+				this.imageList = list
+			},
+			//上传视频
+			uploadVideo(){
+				uni.chooseVideo({
+					maxDuration:10,
+					success: async(res) => {
+						const uploadResult = await upload({ filePath: res.tempFilePath, bucket: 'moments' })
+						this.video = { src: uploadResult.url, poster: uploadResult.cover }
+					}
+				})
+			},
+			// 选择位置
+			chooseLocation() {
+				uni.chooseLocation({
+					success: res => {
+						let data = {
+							name: res.name,
+							address: res.address,
+							latitude: res.latitude,
+							longitude: res.longitude
+						};
+						this.location = data
+					}
+				});
+			}
+		}
+	}
+</script>
+
+<style>
+
+</style>

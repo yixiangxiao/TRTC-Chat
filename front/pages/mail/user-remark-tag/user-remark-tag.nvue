@@ -1,0 +1,100 @@
+<template>
+	<view class="page">
+		<!-- 导航栏 -->
+		<my-nav-bar title="设置备注和标签" is-show-back bg-color="bg-white">
+			<my-main-button name="完成" slot="right" @click="complete"></my-main-button>
+		</my-nav-bar>
+		
+		<!-- 备注 -->
+		<view class="flex flex-column">
+			<text class="font-sm text-secondary px-3 py-2">备注名</text>
+			<input v-model="nickName" :maxlength="15" type="text" class="font-md border bg-white px-3"  style="height: 100rpx;" placeholder="请输入备注名">
+		</view>
+		
+		<!-- 标签 -->
+		<view class="flex flex-column">
+			<text class="font-sm text-secondary px-3 py-2">标签</text>
+			<view class="border bg-white px-2 py-2 flex align-center flex-wrap" style="min-height: 100rpx;" @click="toSetTage">
+				<view class="border rounded-circle border-main mr-1 mb-1 mt-1" v-for="(item, index) in tagList" :key="index">
+					<text class="font main-text-color px-2 py-1 ">{{item}}</text>
+				</view>
+			</view>
+		</view>
+	</view>
+</template>
+
+<script>
+	import MyNavBar from '@/components/my-ui/my-nav-bar.vue';
+	import MyMainButton from '@/components/my-ui/my-main-button.vue';
+	import auth from '@/common/mixin/auth.js';
+	import { setRemarkAndTag } from '@/api/friend.js';
+	import { mapState } from 'vuex';
+	export default {
+		mixins: [auth],
+		components: {
+			MyNavBar,
+			MyMainButton
+		},
+		data() {
+			return {
+				id: 0,
+				nickName:'',
+				tagList: []
+			}
+		},
+		computed: {
+			...mapState({
+				list: state => state.user.chatList,
+				chat:state=> state.user.chat,
+			}),
+		},
+		onLoad(e) {
+			if (!e.params) {
+				return this.backToast()
+			}
+			const params = JSON.parse(e.params)
+			this.id = params.user_id
+			this.nickName = params.nickname
+			this.tagList = params.tags == '' ? [] : params.tags.split(',')
+			uni.$on('updateTag', (tags) => {
+				this.tagList = tags
+			})
+		},
+		beforeDestroy() {
+			uni.$off('updateTag')
+		},
+		methods: {
+			//前往设置标签页
+			toSetTage(){
+				uni.navigateTo({
+					url:'/pages/mail/user-tag-set/user-tag-set?tagList='+JSON.stringify(this.tagList)
+				})
+			},
+			//完成
+			complete(){
+				setRemarkAndTag(this.id, {nickname: this.nickName, tags: this.tagList.join(',')}).then(res => {
+					// 修改会话列表名称
+					let item = this.list.find(item => item.id === this.id && item.chat_type === 'user')
+					item.name = this.nickName
+					uni.$emit('updateNickName', this.nickName, this.id)
+					this.chat.updateChatItem({ id: item.id, chat_type: 'user'}, item)
+					this.$store.dispatch('user/getMailList')
+					uni.showToast({
+						icon: 'none',
+						title: '操作成功'
+					})
+					setTimeout(() => {
+						uni.navigateBack({
+							delta:1
+						})
+					}, 1000)
+					
+				})
+			}
+		}
+	}
+</script>
+
+<style>
+
+</style>

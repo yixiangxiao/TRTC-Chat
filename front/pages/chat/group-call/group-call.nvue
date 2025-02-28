@@ -1,0 +1,161 @@
+<template>
+	<view>
+		<!-- 导航栏 -->
+		<my-nav-bar title="选择人员" is-show-back :is-show-right="true">
+			<my-main-button :name="'确定 ('+selectCount+')'" slot="right" @click="handleNavBarBtn"></my-main-button>
+		</my-nav-bar>
+		<view class="position-fixed left-0 right-0" :style="'top:'+top+'px;background-color:#fff'">
+			<scroll-view scroll-x="true" class="flex"
+			:show-scrollbar="false">
+				<view class="m-1" v-for="(item, index) in selectList" :key="index">
+					<my-avatar :src="item.avatar" size="100"></my-avatar>
+				</view>
+			</scroll-view>
+			<!-- 搜索框 -->
+			<view class="p-3 bg-light">
+				<input type="text" v-model="keyword" placeholder="搜索" class="bg-white rounded"
+					placeholder-class="text-center" style="height: 80rpx;" />
+			</view>
+		</view>
+		<view style="height: 260rpx;"></view>
+		<!-- 联系人列表 -->
+		<view class="px-2 py-1 bg-light">
+			<text class="font-sm text-muted">{{keyword ? '搜索结果' :'群联系人'}}</text>
+		</view>
+		<my-list-item :title="item.username" v-for="(item,index) in allList" :key="index" :img-url="item.avatar"
+			is-show-right :is-show-right-icon="false" @click="selectItem(item)">
+			<view slot="right" style="width: 40rpx;height: 40rpx;"
+				class="border rounded-circle flex align-center justify-center">
+				<view v-if="item.checked" style="width: 30rpx;height: 30rpx;" class="rounded-circle" 
+				:class="currentUser.id === item.id ? 'disabled-bg-color' : 'main-bg-color '">
+				</view>
+			</view>
+		</my-list-item>
+
+		<view v-if="keyword !== '' && searchList.length === 0" class="flex align-center justify-center"
+			style="height: 100rpx;">
+			<text class="font text-light-muted">暂无搜索结果</text>
+		</view>
+
+	</view>
+</template>
+
+<script>
+	import MyNavBar from '@/components/my-ui/my-nav-bar.vue';
+	import MyMainButton from '@/components/my-ui/my-main-button.vue';
+	import MyListItem from '@/components/my-ui/my-list-item.vue';
+	import MyAvatar from '@/components/my-ui/my-avatar.vue';
+	import { getGroupInfo } from '@/api/group.js'
+	import { groupCall } from '@/api/rtc.js'
+	import $U from '@/common/lib/util.js';
+	const TUICallKit = uni.requireNativePlugin('TencentCloud-TUICallKit');
+	export default {
+		components: {
+			MyNavBar,
+			MyMainButton,
+			MyListItem,
+			MyAvatar
+		},
+		data() {
+			return {
+				keyword: "",
+				top: 0,
+				currentUser: JSON.parse($U.getStorage('user')),
+				option: {},
+				list: [],
+				group: {},
+			}
+		},
+		onLoad(e) {
+			let res = uni.getSystemInfoSync()
+			this.top = res.statusBarHeight + uni.upx2px(90)
+			this.option = JSON.parse(decodeURIComponent(e.params));
+			if(this.option.id){
+				getGroupInfo(this.option.id).then(res=>{
+					this.group = res
+					this.list = res.group_users.map(item=>{
+						return {
+							id: item.user_id,
+							username: item.nickname || item.user.nickname || item.user.username,
+							avatar: item.user.avatar || '/static/images/userpic.png',
+							checked: this.currentUser.id === item.user_id ? true : false
+						}
+					})
+				})
+			}
+		},
+		computed: {
+			// 最终列表
+			allList() {
+				return this.keyword === '' ? this.list : this.searchList
+			},
+			// 搜索结果列表
+			searchList() {
+				if (this.keyword === '') {
+					return []
+				}
+				return this.list.filter(item => {
+					return item.username.indexOf(this.keyword) !== -1
+				})
+			},
+			// 选中列表
+			selectList() {
+				return this.list.filter(item => item.checked)
+			},
+			// 选中数量
+			selectCount() {
+				return this.selectList.length
+			}
+		},
+		methods: {
+			// 点击导航栏按钮事件
+			handleNavBarBtn() {
+				if (this.selectList.length < 2) return
+				const userIDList = []
+				this.group.group_users.forEach(v => {
+					if (this.selectList.find(a => a.id == v.user_id)) {
+						userIDList.push(v.user.username)
+					}
+				})
+				// console.log(userIDList, 'xx')
+				const num = this.option.type === 'voice' ? 1 : 2;
+				// 发送 
+				const options = {
+				  groupID: this.group.group_id,
+				  userIDList,
+				  callMediaType: num, // 语音通话(callMediaType = 1)、视频通话(callMediaType = 2)
+				};
+				TUICallKit.groupCall(options, (res) => {
+				  if (res.code === 0) {
+					const callType = this.option.type === 'voice' ? 'callVoice' : 'callVideo'
+					groupCall({ groupId: this.option.id, callType})
+					uni.$emit('trtc', { ...this.option, callType  })
+				    console.log('groupCall success', res);
+				  } else {
+				    console.log(`groupCall failed, error message = ${res.msg}`);
+				  }
+				});
+				
+			},
+			// 选中/取消选中 | 发送
+			selectItem(item) {
+				if (this.currentUser.id === item.id) {
+					return 
+				}
+				// 选中/取消选中
+				if (!item.checked && this.selectCount === 15) {
+					// 选中|限制选中数量
+					return uni.showToast({
+						title: '最多支持15人通话',
+						icon: 'none'
+					});
+				}
+				return item.checked = !item.checked
+			}
+		}
+	}
+</script>
+
+<style>
+
+</style>

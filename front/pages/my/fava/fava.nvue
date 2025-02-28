@@ -1,0 +1,322 @@
+<template>
+	<view style="overflow-y: scroll;background-color: #EDEDED;" :style="'min-height:'+ height + 'px'">
+		<!-- 导航栏 -->
+		<my-nav-bar is-show-back title="我的收藏" :is-show-right="false"></my-nav-bar>
+		<view class="pt-3 px-3">
+			<view class="bg-white rounded p-3">
+				<text>聊天记录</text>
+			</view>
+		</view>
+		
+		<view ref="box">
+			<view class="pt-3 px-3" v-for="(item, index) in list" 
+			@longpress="onLong(item, index)" 
+			@touchend="touchend" @click="send(item)">
+				<view class="bg-white rounded p-3">
+					<text v-if="item.type === 'text'">{{item.data}}</text>
+					<!-- 语音 -->
+					<view v-if="item.type === 'audio'" class="flex align-center rounded" @click="playAudio($event, item, index)">
+						<image :src="item.isAudioPlay ? '/static/audio/voice-l.gif' : '/static/audio/yyl.png'"
+							 style="height: 50rpx;width: 50rpx;"></image>
+						<text class="font-md  p-2">{{item.options.time}}{{'"'}}</text>
+					</view>
+					<!-- 表情包或者图片 -->
+					<my-image v-if="item.type === 'emoji' || item.type === 'image' " :src="item.data" image-calss="rounded"
+						@click="previewImage(item, index)" :max-h="350" :max-w="500" stop-propagation></my-image>
+					<!-- 视频 -->
+					<view v-if="item.type === 'video'" class="flex align-center position-relative rounded"
+						@click="playVideo($event, item, index)">
+						<my-image :src="item.options.poster" image-calss="rounded" :max-h="350" :max-w="500"
+							@load="loadPoster"></my-image>
+						<text class="iconfont text-white position-absolute" :style="posterStyle"
+							style="font-size: 80rpx;width: 80rpx;height: 80rpx;">&#xe737;</text>
+					</view>
+					
+					<!-- 位置 -->
+					<view v-if="item.type === 'position'" class="bg-white rounded" style="width: 480rpx;" @click="openLocation($event, item, index)">
+						<view class="flex flex-column align-center">
+							<text class="px-2 font-md text-ellipsis">{{ JSON.parse(item.data).name }}</text>
+							<text class="font-sm text-light-muted text-ellipsis">{{JSON.parse(item.data).address }}</text>
+						</view>
+						<image 
+						:src="`https://restapi.amap.com/v3/staticmap?markers=-1,https://a.amap.com/jsapi_demos/static/demo-center/icons/poi-marker-default.png,0:${JSON.parse(item.data).longitude},${JSON.parse(item.data).latitude}&key=599a6626fbb17920034041fa12c1a9cc`" mode="widthFix"></image>
+					</view>
+					
+					<view class="flex justify-between mt-2">
+						<!-- 名称 -->
+						<text class="font-sm text-light-muted">{{ item.name }}</text>
+						<!-- 时间 -->
+						<text class="font-sm text-light-muted">{{ new Date(item.created_at).getTime() | formatTime }}</text>
+					</view>
+				</view>
+				
+			</view>
+		</view>
+		
+		<!-- 占位 -->
+		<view v-if="list.length < 10"  class="p-2"></view>
+		<!-- 上拉加载 -->
+		<view  v-if="showLoadMore" class="flex mt-2 mx-3 py-5 mb-2 align-center justify-center">
+			<text class="text-muted font">{{loadmore}}</text>
+		</view>
+	</view>
+</template>
+
+<script>
+	import MyNavBar from '@/components/my-ui/my-nav-bar.vue';
+	import MyImage from '@/components/my-ui/my-image.vue';
+	import { getList, destroy } from '@/api/fava.js';
+	import { mapState, mapActions } from 'vuex';
+	import mixin from '@/common/mixin/base.js';
+	// #ifdef APP-PLUS-NVUE
+	const dom = weex.requireModule('dom')
+	// #endif
+	export default {
+		mixins: [mixin],
+		components:{
+			MyNavBar,
+			MyImage
+		},
+		data() {
+			return {
+				poster: {
+					width: 100,
+					height: 100
+				},
+				height: 0,
+				isLongPress: false,
+				innerAudioContext: null,
+				page: 1,
+				loadmore: '上拉加载更多',
+				list: [],
+				type: '',
+				boxHeight: 0,
+				bodyHeight: 0,
+			}
+		},
+		computed: {
+			...mapState('audio', ['sum']), //数组写法
+			showLoadMore() {
+				if (this.bodyHeight < this.boxHeight) {
+					return true
+				}
+				return false
+			},
+			//视频封面图标位置
+			posterStyle() {
+				const left = this.poster.width / 2 - uni.upx2px(80) / 2
+				const top = this.poster.height / 2 - uni.upx2px(80) / 2
+				return `left:${left};top:${top}`
+			},
+			//图片列表
+			imageList() {
+				const arr = this.list.filter(item => item.type === 'emoji' || item.type === 'image').map(item => item.data)
+				return arr
+			},
+		},
+		mounted() {
+			this.audioOn(this.onPlayAudio)
+			dom.getComponentRect(this.$refs.box, (option) => {
+			    this.boxHeight = option.size.height;
+				let res = uni.getSystemInfoSync()
+				this.bodyHeight = res.windowHeight - res.statusBarHeight - uni.upx2px(90)
+			});
+		},
+		beforeDestroy() {
+			this.audioOff(this.onPlayAudio)
+			// 销毁音频
+			if (this.innerAudioContext) {
+				this.innerAudioContext.destroy();
+				this.innerAudioContext = null;
+			}
+		},
+		onLoad(e) {
+			if (e.type) {
+				this.type = e.type
+			}
+			let res = uni.getSystemInfoSync()
+			this.height = res.windowHeight
+			this.loadmore = '上拉加载更多'
+			this.getList()
+		},
+		// 监听下拉刷新
+		onPullDownRefresh() {
+			this.page = 1
+			this.loadmore = '上拉加载更多'
+			this.getList().then(() => {
+				uni.showToast({
+					title: '刷新成功',
+					icon: 'none'
+				});
+				uni.stopPullDownRefresh()
+			})
+		},
+		// 监听触底事件
+		onReachBottom() {
+			// console.log('触底')
+			if (this.loadmore !== '上拉加载更多') {
+				return;
+			}
+			this.loadmore = '加载中...'
+			this.page = this.page + 1
+			this.getList().then(res => {
+				this.loadmore = this.list.length == this.page * 10 ? '上拉加载更多' : '没有更多了'
+			})
+			.catch(err => {
+				this.page = this.page - 1
+				this.loadmore = '上拉加载更多'
+			})
+		},
+		methods: {
+			...mapActions('audio', ['audioOn', 'audioEmit', 'audioOff']),
+			// 获取收藏列表
+			getList() {
+				return new Promise((resolve, reject) => {
+					getList({page: this.page}).then(res => {
+						let list = res.map(v => {
+							return {
+								...v,
+								options: JSON.parse(v.options)
+							}
+						})
+						this.list = this.page === 1 ? list : [...this.list, ...list]
+						resolve(res)
+					}).catch((err) => {
+						reject(err)
+					})
+				})
+			},
+			send(item) { // 发送收藏
+				if (this.type === 'sendFava') {
+					uni.showModal({
+						content: '是否要发送该收藏？',
+						success: (res)=> {
+							if (res.cancel) {
+								return
+							}
+							uni.$emit('sendOther', {...item, _type: 'sendFava'})
+							uni.navigateBack({delta:1})
+						}
+					});
+				}
+			},
+			onLong(item, index) {
+				this.isLongPress = true
+				uni.showActionSheet({
+					itemList: ['删除'],
+					success: res => {
+						if(res.tapIndex !== 0){
+							return
+						}
+						uni.showModal({
+							content: '是否要删除该收藏？',
+							success: (res)=> {
+								if (res.cancel) {
+									return
+								}
+								destroy({ id:item.id, type: item.type, data: item.data }).then(res=>{
+									uni.showToast({
+										title: '删除成功',
+										icon: 'none'
+									});
+									this.list.splice(index,1)
+								})
+							}
+						});
+					},
+				});
+			},
+			touchend(){
+				//延时执行为了防止 click() 还未判断 islongPress 的值就被置为 fasle
+				setTimeout(() => {
+					this.isLongPress = false
+				},300)
+			},
+			//加载封面
+			loadPoster({width,height}) {
+				// console.log(width, height)
+				this.poster.height = height
+				this.poster.width = width
+			},
+			//播放视频
+			playVideo(e, item, index) {
+				// #ifdef APP-PLUS-NVUE
+				e.stopPropagation();
+				// #endif
+				if (this.isLongPress) return
+				if (this.type) return this.send(item, index)
+				uni.navigateTo({
+					url: '/pages/chat/video/video?url=' + encodeURIComponent(item.data)
+				})
+			},
+			// 监听播放音频全局事件
+			onPlayAudio(index) {
+				if (this.innerAudioContext) {
+					if (this.index !== index) {
+						this.innerAudioContext.pause();
+					}
+				}
+			},
+			//播放音频
+			playAudio(e, item, index) {
+				// #ifdef APP-PLUS-NVUE
+				e.stopPropagation();
+				// #endif
+				if (this.isLongPress) return
+				if (this.type) return this.send(item, index)
+				this.audioEmit(this.index)
+				if (!this.innerAudioContext) {
+					this.innerAudioContext = uni.createInnerAudioContext()
+					this.innerAudioContext.src = item.data
+					this.innerAudioContext.play()
+					// 监听播放
+					this.innerAudioContext.onPlay(() => {
+						this.$set(item, 'isAudioPlay', true)
+					});
+					// 监听暂停
+					this.innerAudioContext.onPause(() => {
+						this.$set(item, 'isAudioPlay', false)
+					});
+					// 监听停止
+					this.innerAudioContext.onStop(() => {
+						this.$set(item, 'isAudioPlay', false)
+					});
+					// 监听错误
+					this.innerAudioContext.onError(() => {
+						this.$set(item, 'isAudioPlay', false)
+					});
+				} else {
+					this.innerAudioContext.stop()
+					this.innerAudioContext.play()
+				}
+			},
+			//预览图片
+			previewImage(item, index) {
+				if (this.isLongPress) return
+				if (this.type) return this.send(item, index)
+				uni.previewImage({
+					current: item.data,
+					urls: this.imageList,
+				});
+			},
+			//打开地图
+			openLocation(e, item, index){
+				e.stopPropagation();
+				if (this.isLongPress) return
+				if (this.type) return this.send(item, index)
+				uni.openLocation({
+					latitude: JSON.parse(item.data).latitude,
+					longitude: JSON.parse(item.data).longitude,
+					name: JSON.parse(item.data).name,
+					success: function() {
+						console.log('success');
+					}
+				});
+			}
+		}
+	}
+</script>
+
+<style>
+
+</style>

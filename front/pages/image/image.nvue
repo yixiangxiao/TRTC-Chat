@@ -1,0 +1,48 @@
+<template>
+  <view class="position-relative" style="flex:1;">
+  	<web-view ref="webview" @onPostMessage="handlePostMessage"  style="flex:1;" :src="webviewSrc"></web-view>
+  </view>
+</template>
+
+<script>
+export default {
+  data() {
+    return {
+      webviewStyles: {},
+      platform: "",
+      webviewSrc:
+        "/hybrid/html/cropper/index.html",
+    };
+  },
+
+  mounted() {
+    const { platform } = uni.getSystemInfoSync();
+    this.platform = platform;
+    console.log(platform);
+
+    if (platform === "windows" || platform === "mac") {
+      this.handleH5Message();
+    }
+  },
+
+  methods: {
+    handlePostMessage(event) {
+    	console.log(event, '接收到来自webview的信息');
+		uni.$emit('getImage', event.detail.data[0].dataUrl)
+    },
+
+    handleH5Message(e) {
+      console.log(`H5Message`);
+      window.addEventListener("message", (event) => {
+        const data = event.data.data;
+        if (data && data.type === "croppedData") {
+          const eventChannel = this.getOpenerEventChannel();
+          eventChannel.emit("imgCropped", { data: data.dataUrl });
+        }
+      });
+    },
+  },
+};
+</script>
+
+<style></style>

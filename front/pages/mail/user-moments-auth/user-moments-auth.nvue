@@ -1,0 +1,62 @@
+<template>
+	<view class="page">
+		<!-- 导航栏 -->
+		<my-nav-bar is-show-back title="设置朋友圈动态权限" :is-show-right="false"></my-nav-bar>
+		
+		<my-list-item title="让他看我" :is-show-right="true" :is-show-icon="false" :is-show-right-icon="false">
+			<switch slot="right" :checked="form.lookme ? true : false" @change="change('lookme')" color="#08C060" />
+		</my-list-item>
+		<my-list-item title="看他" :is-show-right="true" :is-show-icon="false" :is-show-right-icon="false">
+			<switch slot="right" :checked="form.lookhim ? true : false" @change="change('lookhim')" color="#08C060" />
+		</my-list-item>
+	</view>
+</template>
+
+<script>
+	import MyNavBar from '@/components/my-ui/my-nav-bar.vue';
+	import MyAvatar from '@/components/my-ui/my-avatar.vue';
+	import MyListItem from '@/components/my-ui/my-list-item.vue';
+	import { setMomentAuth } from '@/api/friend.js';
+	export default {
+		components: {
+			MyNavBar,
+			MyAvatar,
+			MyListItem,
+		},
+		data() {
+			return {
+				id:0,
+				form:{
+					lookme: 1,
+					lookhim: 1
+				}
+			}
+		},
+		onLoad(e) {
+			if(e.user_id){
+				this.id = e.user_id
+			}
+			if(e.params){
+				this.form = JSON.parse(e.params)
+			}
+		},
+		methods: {
+			change(key){
+				this.form[key] = this.form[key] ? 0 : 1
+				this.submit()
+			},
+			submit(){
+				setMomentAuth(this.id, this.form).then(res=>{
+					uni.showToast({
+						title: '修改成功',
+						icon: 'none'
+					});
+				})
+			}
+		}
+	}
+</script>
+
+<style>
+
+</style>

@@ -1,0 +1,432 @@
+<template>
+	<view class="page">
+		<!-- 导航栏 -->
+		<my-nav-bar is-show-back bg-color="bg-white"><my-icon-button v-if="detail.friend || isSelf" @click="openAction" slot="right"
+				:icon="'\ue6fd'"></my-icon-button></my-nav-bar>
+
+		<view class="flex px-3 py-4 bg-white align-center border-bottom">
+			<my-avatar @click="previewImage(detail.avatar)" size="120" :src="detail.avatar"></my-avatar>
+			<view class="flex flex-column ml-3 flex-1">
+				<view class="flex align-center justify-between">
+					<view class="flex align-center">
+						<text style="max-width: 450rpx;" class="font-lg font-weight-bold mb-1 text-ellipsis">昵称：{{detail.nickname}}</text>
+						<image v-if="detail.sex === '男'" src="/static/images/user/man.png" mode="widthFix"
+							style="width: 30rpx;height: 32rpx;margin-left: 10rpx;"></image>
+						<image v-if="detail.sex === '女'" src="/static/images/user/woman.png" mode="widthFix"
+							style="width: 32rpx;height: 32rpx;margin-left: 10rpx;"></image>
+					</view>
+					<image v-if="detail.star" src="/static/images/star.png" mode="widthFix"
+						style="width: 40rpx;height: 40rpx;"></image>
+				</view>
+				<text style="max-width: 500rpx;" class="font-md text-light-muted text-ellipsis">账号：{{detail.username}}</text>
+				<text style="max-width: 500rpx;" class="font-md text-light-muted text-ellipsis">地区：{{area}}</text>
+				<text></text>
+			</view>
+		</view>
+
+		<my-list-item v-if="detail.friend || isSelf" :is-show-right="true" :is-show-icon="false"
+			@click="navigate(`/mail/user-remark-tag/user-remark-tag?params=${JSON.stringify({
+						user_id: detail.id,
+						nickname: detail.nickname,
+						tags: detail.tags ?  detail.tags.join(',') : ''
+					})}`)">
+			<view class="flex align-center">
+				<text class="font-md text-dark mr-3"> {{tags.length > 0 ? '标签' : '设置备注和标签'}}</text>
+				<view class="flex" style="width: 550rpx;">
+					<text :style="'width:' + item.width + 'rpx'"
+						class="text-center font-md text-light-muted text-ellipsis" v-for="(item, index) in tags"
+						:key="index">{{item.title}}</text>
+					<text v-if="detail.tags && detail.tags.length === 0 " class="font text-light-muted">未设置</text>
+				</view>
+			</view>
+		</my-list-item>
+
+		<my-divider></my-divider>
+		<my-list-item  title="朋友圈" :is-show-right="true" :is-show-icon="false" @click="openMoments">
+			<view class="flex align-center">
+				<text class="font-md text-dark mr-5">朋友圈</text>
+				<template v-if="detail.moments && detail.moments[0]">
+					<text v-if="detail.moments[0].content && !detail.moments[0].image.length" class="font text-secondary text-ellipsis" style="width: 460rpx;">{{detail.moments[0].content}}</text>
+					<image mode="aspectFill" v-for="(item,index) in detail.moments[0].image" :key="index" :src="item" style="width: 90rpx;height: 90rpx;"
+					class="mr-2"></image>
+				</template>
+			</view>
+		</my-list-item>
+		<my-list-item title="更多信息" :is-show-right="true" :is-show-icon="false"></my-list-item>
+
+		<my-divider></my-divider>
+		<view v-if="(detail.friend && detail.isblack === 0) || isSelf" 
+		class="py-3 flex justify-center align-center bg-white" 
+		hover-class="bg-hover-light" @click="send">
+			<text class="iconfont font-md text-primary mr-1">&#xe64e;</text>
+			<text class="font-md text-primary">发信息</text>
+		</view>
+		
+		<view v-if="!detail.friend && !isSelf" @click="navigate('/mail/add-friend/add-friend?params='+ JSON.stringify({
+				friend_id: detail.id,
+				nickname: detail.nickname ? detail.nickname : '',
+				lookme: detail.lookme ? detail.lookme : 1,
+				lookhim: detail.lookhim ? detail.lookhim : 1
+			}))" class="py-3 flex justify-center align-center bg-white" hover-class="bg-hover-light">
+			<text class="font-md text-primary">添加好友</text>
+		</view>
+
+		<view v-if="detail.friend && detail.isblack === 1" class="py-3 flex align-center justify-center">
+			<text class="font-sm text-light-muted">已添加至黑名单，你将不再收到对方的消息</text>
+		</view>
+
+		<!-- 扩展菜单 -->
+		<my-pop-up ref="mypopup" fix-bottom :is-need-animate="false" mask-color>
+			<scroll-view scroll-y :show-scrollbar="false" class="bg-white" style="height: 580rpx;">
+				<my-list-item v-for="(item,index) in actions" :key="index" :title="item.title" :border-bottom="false"
+					@click="actionEvent(item)">
+					<text slot="icon" class="iconfont font-lg py-1">{{item.icon}}</text>
+				</my-list-item>
+			</scroll-view>
+		</my-pop-up>
+	</view>
+</template>
+
+<script>
+	import MyNavBar from '@/components/my-ui/my-nav-bar.vue';
+	import MyIconButton from '@/components/my-ui/my-icon-button.vue';
+	import MyDivider from '@/components/my-ui/my-divider.vue';
+	import MyListItem from '@/components/my-ui/my-list-item.vue';
+	import MyAvatar from '@/components/my-ui/my-avatar.vue';
+	import MyPopUp from '@/components/my-ui/my-pop-up.vue';
+	import auth from '@/common/mixin/auth.js';
+	import { getUserInfo } from '@/api/user.js';
+	import { setStar, setBlack, destroy } from '@/api/friend.js';
+	import { mapState } from 'vuex';
+import chat from '../../../common/lib/chat';
+	export default {
+		mixins: [auth],
+		components: {
+			MyNavBar,
+			MyIconButton,
+			MyDivider,
+			MyListItem,
+			MyAvatar,
+			MyPopUp
+		},
+		data() {
+			return {
+				detail: {
+					id: 0,
+					username: "",
+					nickname: "",
+					avatar: "",
+					sex: "",
+					sign: "",
+					area: "",
+					friend: false,
+					lookhim: 0,
+					lookme: 0,
+					star: 0,
+					isblack: 0,
+					tags: []
+				},
+			}
+		},
+		onLoad(e) {
+			if (!e.user_id) {
+				return this.backToast()
+			}
+			this.detail.id = e.user_id
+			if(e.chat_id && e.chat_type) {
+				this.chat_id = e.chat_id
+				this.chat_type = e.chat_type
+			}
+		},
+		onShow() {
+			this.getUserInfo()
+		},
+		computed: {
+			...mapState({
+				user: state => state.user.user,
+				chat: state => state.user.chat
+			}), //对象写法
+			area() {
+				const area = this.detail.area ? JSON.parse(this.detail.area) : ''
+				if (area && area.length) {
+					// 取名称
+					return area[0].text + ' ' + area[1].text
+				} else {
+					return ''
+				}
+			},
+			actions() {
+				return [{
+					icon: "\ue6b3",
+					title: "设置备注和标签",
+					type: "navigate",
+					path: `mail/user-remark-tag/user-remark-tag?params=${JSON.stringify({
+						user_id: this.detail.id,
+						nickname: this.detail.nickname,
+						tags: this.detail.tags ? this.detail.tags.join(',') : ''
+					})}`
+				}, {
+					icon: "\ue613",
+					title: "把他推荐给朋友",
+					type: "navigate",
+					// path: "mail/send-card/send-card",
+					path:"chat/chat-list/chat-list?params="+encodeURIComponent(JSON.stringify({
+						type: "card",
+						data: this.detail.nickname || this.detail.username,
+						options: JSON.stringify({
+							avatar: this.detail.avatar,
+							id: this.detail.id
+						})
+					}))
+				}, {
+					icon: "\ue6b0",
+					title: this.detail.star ? '取消星标好友' : '设为星标好友',
+					type: "event",
+					event: "setStar"
+				}, {
+					icon: "\ue667",
+					title: "设置朋友圈动态权限",
+					type: "navigate",
+					path: `mail/user-moments-auth/user-moments-auth?user_id=${this.detail.id}&params=${JSON.stringify(
+					{lookhim: this.detail.lookhim, lookme: this.detail.lookme}
+					)}`
+				}, {
+					icon: "\ue638",
+					title: this.detail.isblack ? '移出黑名单' : '加入黑名单',
+					type: "event",
+					event: "setBlack"
+				}, {
+					icon: "\ue61c",
+					title: "投诉",
+					type: "navigate",
+					path: `mail/user-report/user-report?params=${JSON.stringify({
+						reported_id: this.detail.id,
+						reported_type: 'user'
+					})}`
+				}, {
+					icon: "\ue638",
+					title: "删除",
+					type: "event",
+					event: "deleteItem"
+				}]
+			},
+			isSelf() {
+				return this.user.id === this.detail.id
+			},
+			tags() {
+				// const tagList = [...this.detail.tags]
+				if (this.detail.tags && this.detail.tags.length === 0) return []
+				//单个tag最小宽度为100rpx
+				const minWidth = 100
+				//单个tag最大宽度为250rpx
+				const maxWidth = 250
+				//标签盒子总宽度
+				const totalWidth = 550
+				//tag宽度和
+				let sum = 0
+				const arr = this.detail.tags?.map(item => {
+					// 计算规则 根据字符串长度 1个长度为50rpx
+					//如果宽度大于最大宽度那就是最大宽度，如果宽度小于最小宽度那就最小宽度否则就是计算的宽度
+					const width = item.length * 50 > maxWidth ? maxWidth : item.length * 50 < minWidth ? minWidth :
+						item.length * 50
+					sum += width
+					// console.log(sum,width, totalWidth - sum, item)
+					//如果tag宽度和大于总宽度
+					if (sum > totalWidth) {
+						return {
+							width: 0,
+							title: item
+						}
+					}
+
+					return {
+						width: width,
+						title: item
+					}
+				}) || []
+
+				//计算tag总宽度
+				const total = arr?.reduce((prev, next) => {
+					return prev + next.width
+				}, 0)
+
+				//找出当前宽度为0的那条数据
+				let index = arr?.findIndex(item => item.width == 0)
+				// console.log(totalWidth - total)                         //朋友 xx  xx xx xx/100
+				//盒子宽度 - tag总宽度 赋值给当前为0的那个tag(第一个为0的tag)[100,200,100,100,0,0,0] totalWidth:550 total 500 tw - t50
+				if (index !== -1 && arr ) {
+					arr[index].width = totalWidth - total
+				}
+				return arr
+			}
+		},
+		methods: {
+			//跳转
+			navigate(url) {
+				uni.navigateTo({
+					url: '/pages' + url
+				})
+			},
+			updateChatItem(id, chat_type) {
+				// 获取当前会话详细资料
+				id = parseInt(id)
+				const res = this.chat.getChatListItem(id, chat_type)
+				// 如果有当前会话
+				if (res) {
+				   const currentChat = res
+				   // 如果 avatarList 不存在
+				   if (!currentChat.avatarList) {
+					   currentChat.avatarList = []
+				   }
+				   // 如果 avatarList没有数据
+				   if (!currentChat.avatarList.length) {
+					   currentChat.avatarList.push({user_id: this.detail.id, avatar: this.detail.avatar, nickname: this.detail.nickname })
+				   }
+				   
+				   // 如果找不到
+				   const obj = currentChat.avatarList.find(v => parseInt(v.user_id) === parseInt(this.detail.id) )
+				   if (!obj) {
+					   currentChat.avatarList.push({user_id: this.detail.id, avatar: this.detail.avatar, nickname: this.detail.nickname})
+				   }
+				   
+				   // 如果是单聊 并且不是自己
+				   if (chat_type === 'user' && !this.isSelf) {
+					   // 更新会话列表头像
+					   currentChat.avatar = this.detail.avatar
+				   }
+				   
+				   const avatarList = currentChat.avatarList.map(v => {
+					   // 如果相等则更新
+				      if(parseInt(v.user_id) === parseInt(this.detail.id)){
+					     return {...v, avatar: this.detail.avatar, nickname: this.detail.nickname}
+				      }
+					  return {...v}
+				  })
+				  uni.$emit('updateNickName', this.detail.nickname, this.detail.id, this.detail.avatar)
+				  // 更新会话头像数组
+				  this.chat.updateChatItem({ id, chat_type},{...currentChat, avatarList})
+			  }
+			},
+			//打开扩展菜单
+			openAction() {
+				this.$refs.mypopup.show()
+			},
+			// 获取用户信息
+			getUserInfo() {
+				getUserInfo(this.detail.id).then(res => {
+					if(res) {
+						// console.log(res)
+						if(res.moments && res.moments.length && res.moments[0]){
+							res.moments[0].image = res.moments[0].image ? res.moments[0].image.split(',') : []
+						}
+						this.detail = res
+						// 更新会话头像(聊天)
+						if (this.chat_id && this.chat_type) {
+							this.updateChatItem(this.chat_id, this.chat_type)
+						}
+					}
+				})
+			},
+			//扩展菜单事件处理
+			actionEvent(e) {
+				if (!e.type) return
+				switch (e.type) {
+					case 'navigate':
+						uni.navigateTo({
+							url: '/pages/' + e.path
+						})
+						break;
+					case 'event':
+						this[e.event](e)
+						break;
+				}
+
+				this.$refs.mypopup.hide()
+			},
+			//发信息
+			send() {
+				uni.navigateTo({
+					url: `/pages/chat/chat?params=${encodeURIComponent(JSON.stringify({
+						id: this.detail.id,
+						name: this.detail.nickname ? this.detail.nickname : this.detail.username,
+						avatar: this.detail.avatar,
+						chat_type: 'user'
+					}))}`
+				})
+			},
+			//设为星标朋友/取消
+			setStar(e) {
+				let star = this.detail.star == 0 ? 1 : 0
+				setStar(this.detail.id, {star}).then(res => {
+					this.detail.star = star
+					e.title = this.detail.star ? '取消星标好友' : '设为星标好友'
+				})
+				
+			},
+			//加入/移出黑名单
+			setBlack(e) {
+				const msg = this.detail.isblack ? '移出黑名单' : '加入黑名单'
+				uni.showModal({
+					content: '是否' + msg + '?',
+					success: (res) => {
+						if (res.confirm) {
+							let isblack = this.detail.isblack == 0 ? 1 : 0
+							setBlack(this.detail.id, {isblack}).then(res => {
+								this.detail.isblack = isblack
+								e.title = this.detail.isblack ? '移出黑名单' : '加入黑名单'
+								uni.showToast({
+									icon: 'none',
+									title: msg + '成功'
+								})
+							})
+						}
+					}
+				})
+
+			},
+			// 删除好友
+			deleteItem() {
+				if (this.isSelf) {
+					return uni.showToast({
+						icon: 'none',
+						title: '不能删除自己'
+					})
+				}
+				uni.showModal({
+					content: '确认删除好友吗?删除好友后相应的聊天记录也会删除',
+					success: (res) => {
+						if (res.confirm) {
+							destroy({ friend_id: this.detail.id }).then(res=> {
+								this.chat.removeChatItem(this.detail.id, 'user')
+								uni.switchTab({
+									url: '/pages/tabbar/index/index'
+								})
+							})
+						}
+					}
+				})
+			},
+			openMoments(){
+				const self = this.user.id === this.detail.id ? 'me' : 'he'
+				uni.navigateTo({
+					url: `/pages/find/moments/moments?key=moment&self=${self}&params=`+encodeURIComponent(JSON.stringify({
+						id:this.detail.id,
+						name:this.detail.nickname || this.detail.username,
+						avatar:this.detail.avatar,
+						momentcover: this.detail.momentcover
+					})),
+				});
+			},
+			previewImage(url) {
+				uni.previewImage({
+					current: url,
+					urls: [url],
+				});
+			},
+		}
+	}
+</script>
+
+<style>
+
+</style>

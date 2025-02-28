@@ -1,0 +1,61 @@
+<template>
+	<view style="overflow-y: scroll;background-color: #EDEDED;" :style="'min-height:'+ height + 'px'">
+		<!-- 导航栏 -->
+		<my-nav-bar is-show-back :is-show-right="false" @back="back" :is-need-back="false">
+			<input type="text" v-model="keyword" placeholder="请输入用户名" style="width: 650rpx;" 
+			class="font-md" @confirm="search">
+		</my-nav-bar>
+
+		<view>
+			<my-list-item v-for="(item, index) in list" :key="index" :title="item.nickname || item.username"
+			:imgUrl="item.avatar || '/static/images/userpic.png'" @click="getUserInfo(item.id)"></my-list-item>
+		</view>
+		
+	</view>
+</template>
+
+<script>
+	import MyNavBar from '@/components/my-ui/my-nav-bar.vue';
+	import MyListItem from '@/components/my-ui/my-list-item.vue';
+	import { searchUser } from '@/api/user.js';
+	export default {
+		components: {
+			MyNavBar,
+			MyListItem
+		},
+		data() {
+			return {
+				keyword: '',
+				list: [],
+				height: 0,
+			}
+		},
+		onLoad() {
+			let res = uni.getSystemInfoSync()
+			this.height = res.windowHeight
+		},
+		methods: {
+			back(){
+				uni.navigateBack({
+					delta:1
+				})
+			},
+			async search(){
+				const res = await searchUser({keyword: this.keyword})
+				if (res) {
+					this.list = [res]
+				}
+			},
+			//获取用户资料
+			getUserInfo(id) {
+				uni.navigateTo({
+					url:'/pages/mail/user-base/user-base?user_id='+ id
+				})
+			}
+		}
+	}
+</script>
+
+<style>
+
+</style>

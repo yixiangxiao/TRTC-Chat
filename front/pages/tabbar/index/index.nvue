@@ -1,0 +1,148 @@
+<template>
+	<view>
+		<!-- 导航栏 -->
+		<my-nav-bar title="仿微信" :noreadnum="totalNoreadnum"></my-nav-bar>
+		
+		<view class="bg-danger p-3 left-0 right-0 flex align-center justify-between" v-if="!chat || !chat.isOnline">
+			<text class="text-white font">当前处于离线状态</text>
+			<view class="border py-1 px-2 rounded" hover-class="bg-hover-danger" @click="chat.reconnectConfirm()">
+				<text class="text-white font">重新连接</text>
+			</view>
+		</view>
+		
+		<!-- 置顶列表 -->
+		<block v-for="(item, index) in list" :key="index">
+			<my-chat-list v-if="item.istop" @long="long" :item="item" :index="index"></my-chat-list>
+		</block>
+		<!-- 非置顶列表 -->
+		<block v-for="(item, index) in list" :key="index">
+			<my-chat-list v-if="!item.istop" @long="long" :item="item" :index="index"></my-chat-list>
+		</block>
+		<my-pop-up ref="mypopup" :body-height="getMenusHeight" :body-width="240">
+			<view class="flex flex-column " style="width: 240rpx;" :style="getMenusStyle">
+				<view v-for="(item, index) in menus" :key="index" @click="click(item.event)" hover-class="bg-hover-secondary" class=" flex-1 flex align-center justify-center">
+					<text class="font-md">{{ item.name }}</text>
+				</view>
+			</view>
+		</my-pop-up>
+	</view>
+</template>
+
+<script>
+import MyNavBar from '@/components/my-ui/my-nav-bar.vue';
+import MyChatList from '@/components/my-ui/my-chat-list.vue';
+import MyPopUp from '@/components/my-ui/my-pop-up.vue';
+import auth from '@/common/mixin/auth.js';
+import $U from '@/common/lib/util.js';
+import permision from '@/common/mixin/permision.js';
+import { mapState } from 'vuex';
+export default {
+	components: { MyChatList, MyNavBar, MyPopUp },
+	mixins:[auth, permision],
+	data() {
+		return {
+			chatIndex: -1,
+			menus: [
+				{
+					name: '标为未读',
+					event: 'setRead'
+				},
+				{
+					name: '设为置顶',
+					event: 'setTop'
+				},
+				{
+					name: '删除该聊天',
+					event: 'deleteChat'
+				}
+			]
+		};
+	},
+	onShow() {
+		$U.setStorage('isCurrentChat', false) //是否处于当前聊天中
+		$U.setStorage('isCurrentMoment', false) //是否处于朋友圈页面
+	},
+	onLoad() {
+		// #ifdef APP-PLUS-NVUE
+		this.checkPermissionRecord()
+		this.checkPermissionCamera()
+		this.checkPermissionNotice()
+		// #endif
+	},
+	computed: {
+		...mapState({
+			list: state => state.user.chatList,
+			totalNoreadnum: state => state.user.totalNoreadnum,
+			chat:state=> state.user.chat
+		}), //对象写法
+		//动态获取菜单高度
+		getMenusHeight() {
+			let height = 100;
+			return this.menus.length * height;
+		},
+		//动态获取菜单样式
+		getMenusStyle() {
+			return `height:${this.getMenusHeight}rpx`;
+		}
+	},
+
+	methods: {
+		long({ x, y, index}) {
+			//初始化索引
+			this.chatIndex = index
+			//拿到当前对象
+			let item = this.list[index]
+			// 判断之前是否处于未读状态
+			this.menus[0].name = item.noreadnum > 0 ? '标为已读' : '标为未读'
+			//判断之前是否处于置顶状态
+			this.menus[1].name = item.istop ? '取消置顶' : '设为置顶'
+			this.$refs.mypopup.show(x, y);
+		},
+		click(event) {
+			switch (event) {
+				case 'setRead':
+					this.setRead()
+					break;
+				case 'setTop':
+					this.setTop()
+					break;
+				case 'deleteChat':
+					this.deleteChat()
+					break;
+			}
+			this.$refs.mypopup.hide();
+		},
+		// 标为未读/标为已读
+		setRead() {
+			let item = this.list[this.chatIndex]
+			if (item.noreadnum > 0) {
+				item.noreadnum = 0
+			} else {
+				item.noreadnum = 1
+			}
+			this.chat.updateChatItem({id: item.id,chat_type: item.chat_type}, item)
+		},
+		//设为置顶/取消置顶
+		setTop(){
+			let item = this.list[this.chatIndex]
+			item.istop = !item.istop
+			this.chat.updateChatItem({id: item.id,chat_type: item.chat_type}, item)
+		},
+		//删除聊天
+		deleteChat(){
+			uni.showModal({
+				content: '删除后，将清空该聊天的消息记录',
+				success: res => {
+					if (res.confirm) {
+						let item = this.list[this.chatIndex]
+						this.chat.removeChatItem(item.id,item.chat_type)
+					}
+				}
+			});
+			// this.list.splice(this.chatIndex, 1)
+		}
+	}
+};
+</script>
+
+<style></style>

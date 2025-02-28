@@ -1,0 +1,62 @@
+<template>
+	<view class="page">
+		<!-- 导航栏 -->
+		<my-nav-bar title="我的设置" isShowBack :isShowRight="false"></my-nav-bar>
+		<my-list-item title="关于仿微信" :is-show-right="true" :is-show-icon="false" @click="toAbout">
+		</my-list-item>
+		<!-- 退出登录 -->
+		<my-divider></my-divider>
+		<view class="py-3 flex align-center justify-center bg-white"
+		hover-class="bg-light" @click="logout">
+			<text class="font-md text-primary">退出登录</text>
+		</view>
+	</view>
+</template>
+
+<script>
+	import myNavBar from "@/components/my-ui/my-nav-bar.vue";
+	import myDivider from "@/components/my-ui/my-divider.vue";
+	import MyListItem from '@/components/my-ui/my-list-item.vue';
+	import {logout} from '@/api/user.js'
+	export default {
+		components: {
+			myNavBar,
+			myDivider,
+			MyListItem
+		},
+		data() {
+			return {
+				
+			}
+		},
+		methods: {
+			logout(){
+				logout().then(res=>{
+					uni.showToast({
+						title: '退出登录成功',
+						icon: 'none'
+					});
+					this.$store.dispatch('user/logout')
+					const TUICallKit = uni.requireNativePlugin('TencentCloud-TUICallKit');
+					TUICallKit.logout((res) => {
+					  if (res.code !== 0) {
+					    uni.showToast({
+					    		title: res.msg,
+					    		icon: 'none'
+					    });
+					  }
+					});
+				})
+			},
+			toAbout(){
+				uni.navigateTo({
+					url:'/pages/my/about/about'
+				})
+			}
+		}
+	}
+</script>
+
+<style>
+
+</style>

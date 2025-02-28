@@ -1,0 +1,111 @@
+<template>
+	<view class="page">
+		<!-- 导航栏 -->
+		<my-nav-bar title="添加标签" is-show-back bg-color="bg-white">
+			<my-main-button name="保存" slot="right" @click="saveTags"></my-main-button>
+		</my-nav-bar>
+		
+		<view class="px-3 pt-3 pb-2 border-bottom flex align-center flex-wrap">
+			<view class="border border-main rounded-circle py-1 px-2 flex align-center justify-center mr-1 mb-1" 
+			v-for="(item, index) in tagList" :key="index" @click="delateTag(index)">
+				<text class="font main-text-color">{{item}}</text>
+			</view>
+			
+			<input v-model="tag" type="text" class="border bg-white font rounded-circle text-center" 
+			style="border-style: dashed;width: 180rpx;" :maxlength="20" @confirm="send" confirm-type="send" placeholder="添加标签">
+		</view>
+		
+		<!-- 所有标签 -->
+		<view class="flex flex-column">
+			<text class="font-sm text-secondary px-3 py-2">所有标签</text>
+			<view class="px-2 py-2 flex align-center flex-wrap">
+				<view class="border bg-white rounded-circle mr-1 mb-1 mt-1" v-for="(item, index) in allTagList" 
+				:key="index" @click="fastAddTag(item)">
+					<text class="font text-dark px-2 py-1 ">{{item}}</text>
+				</view>
+			</view>
+		</view>
+	</view>
+</template>
+
+<script>
+	import MyNavBar from '@/components/my-ui/my-nav-bar.vue';
+	import MyMainButton from '@/components/my-ui/my-main-button.vue';
+	import { getAllTag } from '@/api/friend.js'
+	export default {
+		components: {
+			MyNavBar,
+			MyMainButton
+		},
+		data() {
+			return {
+				tag: "",
+				tagList: [],
+				allTagList:[]
+			}
+		},
+		onLoad(e) {
+			if(e.tagList) {
+				const tagList = JSON.parse(e.tagList)
+				this.tagList = tagList
+				// console.log(this.tagList)
+			}
+			getAllTag().then((res) => {
+				this.allTagList = res
+			})
+		},
+		methods: {
+			//保存标签
+			saveTags(){
+				uni.$emit('updateTag', this.tagList)
+				uni.navigateBack({
+					delta:1
+				})
+			},
+			//提交
+			send(e){
+				
+				if(this.tagList.includes(this.tag)){
+					this.tag = ''
+					return uni.showToast({
+						icon:'none',
+						title:'标签已存在'
+					})
+				}
+				
+				if(this.tag!==''){
+					this.tagList.push(this.tag)
+				}
+				
+				this.tag = ''
+				// console.log(e)
+			},
+			//快速添加
+			fastAddTag(item){
+				if(this.tagList.includes(item)){
+					return uni.showToast({
+						icon:'none',
+						title:'标签已存在'
+					})
+				}
+				
+				this.tagList.push(item)
+			},
+			//删除标签
+			delateTag(index){
+				uni.showModal({
+					content:"是否删除该标签",
+					success:(res) => {
+						if(res.confirm){
+							this.tagList.splice(index,1)
+						}
+					}
+				})
+			}
+		}
+	}
+</script>
+
+<style>
+
+</style>

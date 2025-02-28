@@ -1,0 +1,81 @@
+<template>
+	<view class="page">
+		<my-nav-bar bg-color="bg-white">
+			<my-icon-button slot="right" :icon="'\ue6ed'"></my-icon-button>
+		</my-nav-bar>
+		<my-list-item :image-size="120" :img-url="user.avatar ? user.avatar : '/static/images/userpic.png'" 
+		is-show-right="true" @click="toUserInfo">
+			<view class="flex flex-column">
+				<text class="text-dark font-lg font-weight-bold">{{nickname}}</text>
+				<text class="text-light-muted font-sm mt-2">仿微信号：{{user.username}}</text>
+			</view>
+			<view slot="right">
+				<text class="iconfont font-md text-light-muted">&#xe614;</text>
+			</view>
+		</my-list-item>
+		<my-divider></my-divider>
+		<my-list-item title="支付" :is-show-right="true" @click="showTip"><text slot="icon" class="iconfont font-lg py-1">&#xe66c;</text></my-list-item>
+		<my-divider></my-divider>
+		<my-list-item title="收藏" :is-show-right="true" @click="toFava"><text slot="icon" class="iconfont font-lg py-1">&#xea2d;</text></my-list-item>
+		<my-list-item title="朋友圈" :is-show-right="true" @click="toMoment"><text slot="icon" class="iconfont font-lg py-1">&#xe608;</text></my-list-item>
+		<my-list-item title="表情" :is-show-right="true" @click="showTip"><text slot="icon" class="iconfont font-lg py-1">&#xe605;</text></my-list-item>
+		<my-divider></my-divider>
+		<my-list-item title="设置" :is-show-right="true" @click="toSetting"><text slot="icon" class="iconfont font-lg py-1">&#xe612;</text></my-list-item>
+	</view>
+</template>
+
+<script>
+	import MyNavBar from '@/components/my-ui/my-nav-bar.vue';
+	import MyIconButton from '@/components/my-ui/my-icon-button.vue';
+	import MyListItem from '@/components/my-ui/my-list-item.vue';
+	import MyDivider from '@/components/my-ui/my-divider.vue';
+	import auth from '@/common/mixin/auth.js';
+	import { mapState } from 'vuex';
+	export default {
+		components:{
+			MyNavBar,
+			MyIconButton,
+			MyListItem,
+			MyDivider
+		},
+		mixins:[auth],
+		data() {
+			return {
+				
+			}
+		},
+		computed : {
+			...mapState('user', ['user']), //数组写法
+			nickname() {
+				return this.user.nickname || this.user.username
+			}
+		},
+		methods: {
+			toUserInfo(){
+				uni.navigateTo({
+					url:'/pages/my/userinfo/userinfo'
+				})
+			},
+			toSetting() {
+				uni.navigateTo({
+					url:'/pages/my/setting/setting'
+				})
+			},
+			//我的收藏
+			toFava(){
+				uni.navigateTo({
+					url:'/pages/my/fava/fava'
+				})
+			},
+			toMoment() {
+				uni.navigateTo({
+					url: '/pages/find/moments/moments?key=moment'
+				})
+			}
+		}
+	}
+</script>
+
+<style>
+
+</style>

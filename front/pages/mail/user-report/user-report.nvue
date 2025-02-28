@@ -1,0 +1,86 @@
+<template>
+	<view>
+		<!-- 导航栏 -->
+		<my-nav-bar title="用户投诉" is-show-back is-show-right bg-color="bg-white">
+			<my-main-button name="投诉" slot="right" @click="submit"></my-main-button>
+		</my-nav-bar>
+
+		<picker mode="selector" :range="range" @change="onChange">
+			<my-list-item :title="form.category ? form.category : '请选择分类'" :is-show-icon="false" isShowRight></my-list-item>
+		</picker>
+
+		<textarea v-model="form.content" placeholder="请填写投诉内容" class="bg-white p-2 font-md"></textarea>
+	</view>
+</template>
+
+<script>
+	import MyNavBar from '@/components/my-ui/my-nav-bar.vue';
+	import MyListItem from '@/components/my-ui/my-list-item.vue';
+	import MyMainButton from '@/components/my-ui/my-main-button.vue';
+	import auth from '@/common/mixin/auth.js';
+	import { reportFriend } from '@/api/friend.js';
+	export default {
+		mixins: [auth],
+		components: {
+			MyNavBar,
+			MyListItem,
+			MyMainButton
+		},
+		data() {
+			return {
+				range: ["色情", "违法犯罪", "赌博", "政治谣言", "恐怖血腥"],
+				form: {
+					reported_id: 0,
+					reported_type: 'user',
+					category: '',
+					content: ''
+				}
+			}
+		},
+		onLoad(e) {
+			if (!e.params) {
+				return this.backToast()
+			}
+			const params = JSON.parse(e.params)
+			this.form.reported_id = params.reported_id
+			this.form.reported_type = params.reported_type
+		},
+		methods: {
+			onChange(e) {
+				this.form.category = this.range[e.detail.value]
+			},
+			submit() {
+				if (!this.form.category) {
+					return uni.showToast({
+						icon: 'none',
+						title: '请选择分类'
+					})
+				}
+				if (!this.form.content) {
+					return uni.showToast({
+						icon: 'none',
+						title: '请输入投诉内容'
+					})
+				}
+				//请求服务器
+				reportFriend(this.form).then(res => {
+					uni.showToast({
+						icon: 'none',
+						title: '投诉成功'
+					})
+					
+					setTimeout(()=>{
+						uni.navigateBack({
+							delta: 1
+						})
+					},1000)
+				})
+				
+			}
+		}
+	}
+</script>
+
+<style>
+
+</style>

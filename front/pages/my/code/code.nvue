@@ -1,0 +1,74 @@
+<template>
+	<view class="page">
+		<!-- 导航栏 -->
+		<my-nav-bar is-show-back title="二维码名片" :is-show-right="false"></my-nav-bar>
+		
+		<view class="p-5">
+			<view class="bg-white rounded p-4">
+				<view class="flex align-center mb-4">
+					<my-avatar :src="detail.avatar"></my-avatar>
+					<view class="pl-4 flex flex-column">
+						<text class="font-md">{{detail.name}}</text>
+						<!-- <text class="font text-light-muted">地区</text> -->
+					</view>
+				</view>
+				
+				<view class="flex flex-column align-center justify-center">
+					<image :src="src" class="bg-secondary mb-4" 
+					mode="aspectFit" style="height: 550rpx;width: 550rpx;"></image>
+					<text class="font text-light-muted">扫一扫上面二维码图案，加我仿微信</text>
+				</view>
+			</view>
+		</view>
+	</view>
+</template>
+
+<script>
+	import MyNavBar from '@/components/my-ui/my-nav-bar.vue';
+	import MyAvatar from '@/components/my-ui/my-avatar.vue';
+	import auth from '@/common/mixin/auth.js';
+	import { groupQrcode } from '@/api/group.js';
+	import { userQrcode } from '@/api/user.js';
+	import { mapState } from 'vuex';
+	export default {
+		mixins:[auth],
+		components:{
+			MyNavBar,
+			MyAvatar
+		},
+		computed: {
+			...mapState({
+				user:state=>state.user.user
+			}),
+		},
+		data() {
+			return {
+				detail: {
+					id: null,
+					name: null,
+					avatar: null,
+				},
+				src: ''
+			}
+		},
+		onLoad(e) {
+			if(!e.params){
+				return this.backToast()
+			}
+			let detail = JSON.parse(decodeURIComponent(e.params))
+			this.detail = detail
+			if (e.type === 'group') {
+				this.src = groupQrcode(this.detail.id, this.user.token)
+			} else {
+				this.src = userQrcode(this.detail.id, this.user.token)
+			}
+		},
+		methods: {
+			
+		}
+	}
+</script>
+
+<style>
+
+</style>

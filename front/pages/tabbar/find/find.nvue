@@ -1,0 +1,64 @@
+<template>
+	<view class="page">
+		<!-- 导航栏 -->
+		<my-nav-bar title="发现"></my-nav-bar>
+		<my-list-item title="朋友圈" :is-show-right="true" @click="toMoments">
+			<text slot="icon" class="iconfont font-lg py-1">&#xe667;</text>
+			<view class="py-1" slot="right">
+				<view class="position-relative" v-if="!notice.num && notice.user_id">
+					<my-avatar size="55" :src="notice.avatar || '/static/images/userpic.png'" ></my-avatar>
+					<text class="rounded-circle bg-danger position-absolute" style="width: 20rpx;height: 20rpx;right: 0;top: 0;"></text>
+				</view>
+				<my-badge v-if="notice.num" :num="notice.num"></my-badge>
+			</view>
+		</my-list-item>
+		<my-divider></my-divider>
+		<my-list-item title="扫一扫" :is-show-right="true" @click="showTip"><text slot="icon" class="iconfont font-lg py-1">&#xe86d;</text></my-list-item>
+		<my-list-item title="摇一摇" :is-show-right="true" @click="showTip"><text slot="icon" class="iconfont font-lg py-1">&#xe63d;</text></my-list-item>
+		<my-divider></my-divider>
+		<my-list-item title="搜一搜" :is-show-right="true" @click="showTip"><text slot="icon" class="iconfont font-lg py-1">&#xe611;</text></my-list-item>
+		<my-list-item title="看一看" :is-show-right="true" @click="showTip"><text slot="icon" class="iconfont font-lg py-1">&#xe610;</text></my-list-item>
+		<my-divider></my-divider>
+		<my-list-item title="购物" :is-show-right="true" @click="showTip"><text slot="icon" class="iconfont font-lg py-1">&#xe658;</text></my-list-item>
+		<my-divider></my-divider>
+	</view>
+</template>
+
+<script>
+import MyNavBar from '@/components/my-ui/my-nav-bar.vue';
+import MyListItem from '@/components/my-ui/my-list-item.vue';
+import MyAvatar from '@/components/my-ui/my-avatar.vue';
+import MyDivider from '@/components/my-ui/my-divider.vue';
+import auth from '@/common/mixin/auth.js';
+import { mapState } from 'vuex';
+import MyBadge from '@/components/my-ui/my-badge.vue';
+export default {
+	components: { MyNavBar, MyListItem, MyAvatar, MyDivider, MyBadge },
+	mixins:[auth],
+	data() {
+		return {};
+	},
+	computed: {
+		...mapState({
+			notice:state=>state.user.notice,
+			chat:state=>state.user.chat
+		})
+	},
+	methods: {
+		showTip() {
+			uni.showToast({
+				title: '敬请期待'
+			});
+		},
+		//前往朋友圈页面
+		toMoments(){
+			uni.navigateTo({
+				url:"/pages/find/moments/moments?self=all"
+			})
+			this.chat.readMoments()
+		}
+	}
+};
+</script>
+
+<style></style>

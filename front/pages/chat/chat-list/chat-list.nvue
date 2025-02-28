@@ -1,0 +1,250 @@
+<template>
+	<view>
+		<!-- 导航栏 -->
+		<my-nav-bar title="选择" is-show-back bg-color="bg-white">
+			<my-main-button @click="handleNavbar" :name="multiple ? '发送' +'(' + selectedCount +')' : '多选'"
+				slot="right"></my-main-button>
+		</my-nav-bar>
+
+		<!-- 搜索框 -->
+		<view class="p-3 bg-light position-fixed left-0 right-0" :style="'top:' + top + 'px'" style="z-index: 9999;">
+			<input type="text" v-model="keyword" class="bg-white rounded" placeholder="搜索" placeholder-class="text-center"
+				style="height: 80rpx;">
+		</view>
+		<!-- 占位 -->
+		<view style="height: 140rpx;"></view>
+		
+
+		<!-- 联系人列表 -->
+		<view class="px-2 py-1 bg-light">
+			<text class="font-sm text-muted">{{ keyword ? '搜索结果' : '最近联系人' }}</text>
+		</view>
+		
+		<!-- #ifdef APP-PLUS-NVUE -->
+		<my-list-item v-for="(item, index) in allList" :key="index" :img-url="item.avatar || '/static/images/userpic.png'" :title="item.name"
+			:is-show-right="true" :is-show-right-icon="false" @click="selecetItem(item)">
+			<view v-if="multiple" slot="right" style="width: 40rpx;height: 40rpx;"
+				class="border rounded-circle flex align-center justify-center">
+				<view v-if="item.checked" class="main-bg-color rounded-circle" style="width: 30rpx;height: 30rpx;">
+				</view>
+			</view>
+		</my-list-item>
+		<!-- #endif -->
+		
+		<!-- #ifdef MP -->
+		<my-list-item v-for="(item, index) in allList" :key="index" :img-url="item.avatar || '/static/images/userpic.png'"
+			:is-show-right="true" :is-show-right-icon="false" @click="selecetItem(item)">
+			<text class="font-md text-dark">{{item.name}}</text>
+			<view v-if="multiple" slot="right" style="width: 40rpx;height: 40rpx;"
+				class="border rounded-circle flex align-center justify-center">
+				<view v-if="item.checked" class="main-bg-color rounded-circle" style="width: 30rpx;height: 30rpx;">
+				</view>
+			</view>
+		</my-list-item>
+		<!-- #endif -->
+		
+		<!-- 无搜索结果 -->
+		<view v-if=" keyword !== '' && searchList.length === 0 " 
+		class="flex align-center justify-center" style="height: 100rpx;">
+			<text class="font text-light-muted">暂无搜索结果</text>
+		</view>
+		
+		<!-- 弹窗 -->
+		<my-confirm ref="confirm" title="发送给：">
+			<view>
+				<!-- #ifdef APP-PLUS-NVUE -->
+				<scroll-view v-if="multiple" :scroll-x="true" :show-scrollbar="false" class="flex">
+					<view class="mr-1" v-for="(item, index) in selectedList" :key="index">
+						<my-avatar :src="item.avatar" :size="50"></my-avatar>
+					</view>
+				</scroll-view>
+				
+				<view v-else class="flex align-center">
+					<my-avatar :src="item.avatar" :size="50"></my-avatar>
+					<text class="font text-muted ml-2">{{item.name}}</text>
+				</view>
+				<!-- #endif -->
+				
+				<!-- #ifdef MP -->
+				<view class="flex" v-if="multiple" style="overflow-x: scroll;">
+					<view class="mr-1" v-for="(item, index) in selectedList" :key="index">
+						<my-avatar :src="item.avatar" :size="50"></my-avatar>
+					</view>
+				</view>
+				
+				<view v-else class="flex">
+					<my-avatar :src="item.avatar" :size="50"></my-avatar>
+					<text class="font text-light-muted">{{item.name}}</text>
+				</view>
+				<!-- #endif -->
+				
+				<view class="my-3 bg-light rounded p-2">
+					<text class="font text-light-muted">{{formatChatItemData}}</text>
+				</view>
+				
+				<input type="text" class="border-bottom font" style="height: 60rpx;" placeholder="给朋友留言" v-model="content">
+			</view>
+		</my-confirm>
+	</view>
+</template>
+
+<script>
+	import MyNavBar from '@/components/my-ui/my-nav-bar.vue';
+	import MyMainButton from '@/components/my-ui/my-main-button.vue';
+	import MyListItem from '@/components/my-ui/my-list-item.vue';
+	import MyConfirm from '@/components/my-ui/my-confirm.vue';
+	import MyAvatar from '@/components/my-ui/my-avatar.vue';
+	import { mapState } from 'vuex';
+	import auth from '@/common/mixin/auth.js';
+	import $U from '@/common/lib/util.js';
+	export default {
+		mixins:[auth],
+		components: {
+			MyNavBar,
+			MyMainButton,
+			MyListItem,
+			MyConfirm,
+			MyAvatar
+		},
+		data() {
+			return {
+				top: 0,
+				keyword: '',
+				multiple: false,
+				message: {},
+				item: {},
+				list: [],
+				content: '',
+			}
+		},
+		onLoad(e) {
+			if(!e.params){
+				return this.backToast()
+			}
+			this.message = JSON.parse(decodeURIComponent(e.params))
+			console.log(this.message,'===')
+			let res = uni.getSystemInfoSync()
+			// #ifdef APP-PLUS-NVUE
+			this.top = res.statusBarHeight + uni.upx2px(90)
+			// #endif
+			
+			// #ifdef MP
+			this.top = uni.upx2px(90)
+			// #endif
+			
+			this.list = this.chatList.map(v => {
+				return {...v, checked: false}
+			})
+		},
+		onShow() {
+			$U.setStorage('isCurrentChat', true) //是否处于当前聊天中
+		},
+		computed: {
+			...mapState({
+				chatList: state => state.user.chatList,
+				chat:state => state.user.chat
+			}),
+			//最终列表
+			allList(){
+				return this.keyword ? this.searchList : this.list
+			},
+			//搜索结果
+			searchList(){
+				if (this.keyword === '') return []
+				return this.list.filter(item => item.name.indexOf(this.keyword) !== -1)
+			},
+			//选中列表
+			selectedList() {
+				return this.list.filter(item => item.checked)
+			},
+			//选中数量
+			selectedCount() {
+				return this.selectedList.length
+			},
+			formatChatItemData(){
+				const obj = {
+					emoji: '[表情]',
+					image: '[图片]',
+					video: '[视频]',
+					card: '[名片]',
+					position: '[位置]',
+				}
+				return this.message.type === 'text' ? this.message.data : obj[this.message.type]
+			}
+		},
+		methods: {
+			//点击导航栏多选
+			handleNavbar() { // 群发
+				if (!this.multiple) {
+					return this.multiple = true
+				}
+				// 发送
+				if(this.selectedCount === 0){
+					return uni.showToast({
+						title: '请先选择',
+						icon: 'none'
+					});
+				}
+				this.$refs.confirm.show(async (close)=>{
+					for (const item of this.selectedList) {
+					      await this.send(item)
+					      if(this.content){
+					      	await this.send(item, this.content, 'text')
+					      }
+					    }
+					close()
+					uni.navigateBack({delta:1})
+				})
+			},
+			selecetItem(item) {
+				// 多选
+				if (this.multiple) {
+					//选中|限制选中数量
+					if (!item.checked && this.selectedCount === 9) {
+						return uni.showToast({
+							icon: 'none',
+							title: '最多选中9个'
+						})
+					}
+					//取消选中
+					item.checked = !item.checked
+					return 
+				}
+				
+				// 单选
+				this.item = item
+				this.$refs.confirm.show(async (close)=>{
+					await this.send(item)
+					if(this.content){
+						await this.send(item, this.content, 'text')
+					}
+					close()
+					uni.navigateBack({delta:1})
+				})
+			},
+			async send(item, data = false, type = false) {
+				let message = this.chat.formatSendData({
+					to_id: item.id,
+					to_name: item.name,
+					to_avatar: item.avatar,
+					chat_type: item.chat_type,
+					data: data || this.message.data,
+					type: type || this.message.type,
+					options: JSON.parse(this.message.options)
+				})
+				try {
+					const res = await this.chat.send(message)
+					uni.$emit('sendChatFriend', res)
+				} catch(e) {
+					message.send_status = 'fail';
+					message.message_id = new Date().getTime() + '';
+					uni.$emit('sendChatFriend', res)
+				}
+			},
+		}
+	}
+</script>
+
+<style>
+
+</style>

@@ -1,0 +1,341 @@
+<template>
+	<view>
+		<!-- 导航栏 -->
+		<my-nav-bar title="选择" is-show-back bg-color="bg-white">
+			<my-main-button :name="buttonText" slot="right" @click="submit"></my-main-button>
+		</my-nav-bar>
+		
+		<!-- 通讯录列表 -->
+		<scroll-view scroll-y :show-scrollbar="false" :style="'height:' + scrollHeight + 'px'"
+			:scroll-into-view="scrollInto">
+			
+			<!-- 谁可以看 -->
+			<template v-if="type === 'see'">
+				<my-list-item v-for="(item, index) in typeList" :key="item.key" @click="typeIndex = index"
+					:title="item.name" :is-show-right="true" :is-show-right-icon="false">
+					<view slot="right" style="width: 40rpx;height: 40rpx;"
+						class="border rounded-circle flex align-center justify-center mr-5">
+						<view v-if="typeIndex === index" class="main-bg-color rounded-circle"
+							style="width: 30rpx;height: 30rpx;">
+						</view>
+					</view>
+				</my-list-item>
+			</template>
+			
+			<!-- 类型不为谁可以看 或者类型为谁可以看，并且为(谁可以看或者不给谁看) -->
+			<template v-if="type !== 'see' || (type === 'see' && (typeIndex === 1 || typeIndex === 2)) ">
+				<view v-for="(item,index) in list" :key="index" :id=" 'item-' + item.title">
+					<view v-if="item.list.length>0" class="py-2 px-3 border-bottom bg-light">
+						<text class="font-md text-dark">{{item.title}}</text>
+					</view>
+					<my-list-item v-for="(item2, index2) in item.list" :key="index2" @click="selecetItem(item2)"
+						:img-url="item2.avatar ? item2.avatar : '/static/images/userpic.png'"
+						:title="item2.name" :is-show-right="true" :is-show-right-icon="false">
+						<view slot="right" style="width: 40rpx;height: 40rpx;"
+							class="border rounded-circle flex align-center justify-center mr-5">
+							<view v-if="item2.checked" class="main-bg-color rounded-circle"
+								style="width: 30rpx;height: 30rpx;">
+							</view>
+							<view v-if="item2.disabled" class="disabled-bg-color rounded-circle"
+								style="width: 30rpx;height: 30rpx;">
+							</view>
+						</view>
+					</my-list-item>
+				</view>
+			</template>
+		</scroll-view>
+
+		<!-- 侧边栏 -->
+		<view class="position-fixed right-0 bottom-0 bg-white flex flex-column" :style="'top:' + top + 'px'"
+			style="width: 50rpx;" @touchstart="touchstart" @touchmove="touchmove" @touchend="touchend">
+			<view v-for="(item,index) in list" :key="index" class="flex-1 flex align-center justify-center">
+				<text class="font-sm text-muted">{{item.title}}</text>
+			</view>
+		</view>
+
+		<!-- 字母提示 -->
+		<view class="position-fixed rounded-circle bg-light border flex align-center justify-center" v-if="current"
+			style="width: 150rpx;height: 150rpx;left: 300rpx;" :style="'top:'+ modalTop +'px;'">
+			<text class="font-lg">{{current}}</text>
+		</view>
+
+	</view>
+</template>
+
+<script>
+	import MyNavBar from '@/components/my-ui/my-nav-bar.vue';
+	import MyListItem from '@/components/my-ui/my-list-item.vue';
+	import MyMainButton from '@/components/my-ui/my-main-button.vue';
+	import { createGroup, invite, batchInvite } from '@/api/group.js';
+	import $U from '@/common/lib/util.js';
+	import { mapState } from 'vuex';
+	import deepClone from '@/common/lib/deepClone.js'
+	export default {
+		components: {
+			MyNavBar,
+			MyListItem,
+			MyMainButton
+		},
+		data() {
+			return {
+				typeIndex:0,
+				typeList:[{
+					name:"公开",
+					key:"all"
+				},{
+					name:"谁可以看",
+					key:"only"
+				},{
+					name:"不给谁看",
+					key:"except"
+				},{
+					name:"私密",
+					key:"none"
+				}],
+				scrollInto: '',
+				current: '',
+				top: 0,
+				scrollHeight: 0,
+				selectedList: [], //选中列表
+				type: '',
+				limit: 9,
+				dataList: [] ,// 传进来的数据
+				list:[],
+			};
+		},
+		onShow() {
+			$U.setStorage('isCurrentChat', false) //是否处于当前聊天中
+		},
+		onLoad(e) {
+			let res = uni.getSystemInfoSync()
+			this.top = res.statusBarHeight + uni.upx2px(90)
+			// #ifdef MP
+			this.top = uni.upx2px(90)
+			// #endif
+			this.scrollHeight = res.windowHeight - this.top
+			if (e.type) {
+				this.type = e.type
+			}
+			if(e.limit){
+				this.limit = parseInt(e.limit)
+			}
+			if(e.id){
+				this.id = e.id
+				if(e.type === 'inviteGroup'){ // 邀请加入群聊
+					this.limit = 99
+				}
+			}
+		},
+		mounted() {
+			// 监听获取传入数据
+			uni.$on('getDataList', this.getDataList)
+			this.list = this._list
+		},
+		beforeDestroy() {
+			uni.$off('getDataList', this.getDataList)
+		},
+		watch: {
+			dataList(val) {
+				// 做映射
+				const dataMap = val?.reduce((acc, obj) => {
+				    acc[obj.id] = obj;
+				    return acc;
+				}, {});
+				const list = this._list || []
+				list.forEach( (v, index) => {
+					v.list?.forEach((a, index2) => {
+						if (dataMap[a.user_id]) {
+							this.$set(this.list[index].list[index2], 'disabled', true)
+						}
+					})
+				})
+			}
+		},
+		computed: {
+			...mapState({
+				_list: state => deepClone(state.user.mailList) //避免selected改变原数组
+			}), //对象写法
+			//选中数量
+			selectedCount() {
+				return this.selectedList.length
+			},
+			buttonText() {
+				let name = '发送'
+				if (this.type === 'createGroup') {
+					name = '创建群组'
+				}
+				return name +'(' + this.selectedCount +')'
+			},
+			modalTop() {
+				return (this.scrollHeight - uni.upx2px(150)) / 2
+			},
+			//每个索引的高度
+			itemHeight() {
+				const count = this.list.length || 0
+				return this.scrollHeight / count
+			}
+		},
+		methods: {
+			getDataList(data = []) {
+				this.dataList = data
+			},
+			touchstart(e) {
+				this.changeScrollInto(e)
+			},
+			touchend() {
+				this.current = ''
+			},
+			touchmove(e) {
+				this.changeScrollInto(e)
+			},
+
+			changeScrollInto(e) {
+				//触摸时的Y坐标
+				let Y = e.touches[0].pageY
+				// #ifdef MP
+				Y = Y - uni.upx2px(90)
+				// #endif
+
+				//计算索引
+				const index = Math.floor(Y / this.itemHeight)
+				const item = this.list[index]
+				// console.log(this.list[index].title)
+				if (item) {
+					this.scrollInto = 'item-' + item.title
+					this.current = item.title
+				}
+			},
+			selecetItem(item) {
+				if (item.disabled) return 
+				//选中|限制选中数量
+				if (!item.checked && this.selectedCount === this.limit) {
+					return uni.showToast({
+						icon: 'none',
+						title: `最多选中${this.limit}个`
+					})
+				}
+
+				item.checked = !item.checked
+				if (item.checked) { //选中
+					this.selectedList.push(item)
+				} else { //取消选中
+					let index = this.selectedList.findIndex(v => v.username === item.username)
+					if (index !== -1) {
+						this.selectedList.splice(index, 1)
+					}
+				}
+			},
+			
+			async submit() {
+				if(this.type !== 'see' && this.selectedCount === 0){
+					return uni.showToast({
+						title: '请先选择',
+						icon: 'none'
+					});
+				}
+				switch(this.type) {
+					case 'createGroup' :
+					this.createGroup()
+					   break;
+					case 'sendCard':
+					// 是否处于聊天页
+					$U.setStorage('isCurrentChat', true)
+					let item = this.selectedList[0]
+					uni.$emit('sendOther',{
+						_type: "sendCard",
+						data: item.name,
+						type: "card",
+						options: {
+							avatar:item.avatar,
+							id:item.user_id
+						}
+					})
+					uni.navigateBack({
+						delta: 1
+					});
+					   break;
+					case 'inviteGroup':
+					// 是否处于聊天页
+					$U.setStorage('isCurrentChat', true)
+					 uni.showLoading()
+					 
+					 if (this.selectedList.length === 1) {
+						 await invite({ id:this.id, user_id: this.selectedList[0].user_id })
+					 } else {
+						 const userIds = this.selectedList.map(v => v.user_id)
+						 await batchInvite({id:this.id, user_ids: userIds})
+					 }
+					 
+					 uni.hideLoading()
+					  uni.showToast({
+					  	title: '邀请成功',
+					  	icon: 'none'
+					  });
+					  uni.navigateBack({
+					  	delta: 1
+					  });
+					   break;
+					case 'remind':
+					uni.$emit('sendResult',{
+						type:"remind",
+						data:this.selectedList
+					})
+					uni.navigateBack({
+						delta: 1
+					});
+						break;
+					case 'see':
+					let k = this.typeList[this.typeIndex].key
+					if(k !== 'all' && k!== 'none' && !this.selectedCount){
+						return uni.showToast({
+							title: '请先选择',
+							icon: 'none'
+						});
+					}
+					uni.$emit('sendResult',{
+						type:"see",
+						data:{
+							k,
+							v:this.selectedList
+						}
+					})
+					uni.navigateBack({
+						delta: 1
+					});
+					break;
+					default: 
+					   break;
+				}
+				
+			},
+			// 创建群聊
+			createGroup() {
+				uni.showLoading()
+				if (this.selectedCount === 1) return uni.navigateTo({
+					url: `/pages/chat/chat?params=${encodeURIComponent(JSON.stringify({
+						id: this.selectedList[0].user_id,
+						name: this.selectedList[0].name,
+						avatar: this.selectedList[0].avatar,
+						chat_type: 'user'
+					}))}`
+				})
+				createGroup({ids: this.selectedList.map(v => v.user_id)}).then(res => {
+					if (res) {
+						uni.showToast({
+							icon: 'none',
+							title: '创建群聊成功'
+						})
+						uni.hideLoading()
+						setTimeout(() => {
+							uni.switchTab({
+								url:'/pages/tabbar/index/index'
+							})
+						}, 1000)
+					}
+				})
+			}
+		}
+	};
+</script>
+
+<style></style>

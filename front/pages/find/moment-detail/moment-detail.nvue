@@ -1,0 +1,32 @@
+<template>
+	<view style="overflow-y: scroll" >
+		<my-nav-bar title="详情" isShowBack :isShowRight="false"></my-nav-bar>
+		<view class="p-2">
+			<text selectable class="font">{{content}}</text>
+		</view>
+	</view>
+</template>
+
+<script>
+	import myNavBar from "@/components/my-ui/my-nav-bar.vue";
+	export default {
+		components: {
+			myNavBar
+		},
+		data() {
+			return {
+				content: ''
+			}
+		},
+		onLoad(e) {
+			const content = JSON.parse(decodeURIComponent(e.content))
+			this.content = content
+		},
+		methods: {
+		}
+	}
+</script>
+
+<style>
+
+</style>

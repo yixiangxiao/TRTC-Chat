@@ -1,0 +1,219 @@
+<template>
+	<view>
+		<!-- 导航栏 -->
+		<my-nav-bar :title=" name + '聊天记录'" is-show-back :is-show-right="false">
+		</my-nav-bar>
+		<!-- 搜索框 -->
+		<view class="p-3 bg-light position-fixed left-0 right-0" :style="'top:'+top+'px;'">
+			<input type="text" :value="keyword" @input="searchData" placeholder="搜索" class="bg-white rounded"
+				placeholder-class="text-center" style="height: 80rpx;" />
+		</view>
+		<view style="height: 140rpx;"></view>
+		<!-- 聊天记录列表 -->
+		<view class="px-2 py-1 bg-light">
+			<text class="font-md text-muted">{{keyword ? '搜索结果' :'聊天记录'}}</text>
+		</view>
+
+		<view v-for="(item, index) in searchList" :key="item.message_id">
+			<view class="flex align-center p-2 pl-3 pr-3 border-bottom" @click="getChatList(item.message_id)">
+				<my-avatar :src="getAvatar(item.from_id)"></my-avatar>
+				<view class="ml-3 flex flex-column flex-1">
+					<view class="flex justify-between">
+						<text class="font-md text-light-muted">{{item.from_name}}</text>
+						<text class="font-md text-light-muted">{{item.create_time | formatTime}}</text>
+					</view>
+					<view class="flex flex-column"><rich-text :nodes="item.nodes"></rich-text></view>
+				</view>
+			</view>
+		</view>
+
+		<view v-if="keyword !== '' && searchList.length === 0" class="flex align-center justify-center"
+			style="height: 100rpx;">
+			<text class="font text-light-muted">暂无搜索结果</text>
+		</view>
+
+
+	</view>
+</template>
+
+<script>
+	import MyNavBar from '@/components/my-ui/my-nav-bar.vue';
+	import MyMainButton from '@/components/my-ui/my-main-button.vue';
+	import MyAvatar from '@/components/my-ui/my-avatar.vue';
+	import DB from '@/common/lib/sqLite.js';
+	import $U from '@/common/lib/util.js';
+	import mixin from '@/common/mixin/base.js';
+	import { mapState } from 'vuex';
+	export default {
+		mixins: [mixin],
+		components: {
+			MyNavBar,
+			MyMainButton,
+			MyAvatar
+		},
+		data() {
+			return {
+				keyword: "",
+				top: 0,
+				id: 0,
+				chat_type: 'user',
+				searchList: [],
+				name: '',
+				type: '',
+			}
+		},
+		onLoad(e) {
+			let res = uni.getSystemInfoSync()
+			let statusBarHeight = 0
+			// #ifndef MP
+			statusBarHeight = res.statusBarHeight
+			// #endif
+			this.top = statusBarHeight + uni.upx2px(90)
+			if (e.id && e.chat_type) {
+				this.id = e.id
+				this.chat_type = e.chat_type
+			}
+			// if (e.children) {
+			// 	this.searchList = JSON.parse(decodeURIComponent(e.children))
+			// }
+			
+			if (e.type) {
+				this.type = e.type
+			}
+			
+			uni.$on('getChatHistory', this.getChatHistory)
+			this.getName()
+		},
+		computed: {
+			...mapState({
+				user: state => state.user.user,
+				chat: state => state.user.chat,
+				chatList: state => state.user.chatList,
+			})
+		},
+		methods: {
+			getChatHistory(list) {
+				this.searchList = list
+			},
+			searchData(e) {
+				this.keyword = e.detail.value
+				if (e.detail.value === '') {
+					this.searchList = []
+				} else {
+					// 防抖
+					const debouncedDealData = $U.debounce(this.dealData, 500)
+					debouncedDealData()
+				}
+			},
+			dealData() {
+				if (this.keyword === '')  return
+				const table = `chat_${this.user.id}_${this.chat_type}_${this.id}`;
+				const sql = `SELECT * FROM ${table} WHERE type = 'text' AND LOWER(data) LIKE LOWER('%${this.keyword}%') AND isremove != 1;`
+				DB.selectSql(sql).then(res => {
+					console.log(this.keyword, '==>')
+					const results = res.map(result => {
+						let nodes = [];
+						let startIndex = 0;
+						const text = result.data
+						let index = text.indexOf(this.keyword);
+						
+						while (index !== -1) {
+						  // 添加不需要变化的文本节点
+						  if (index > startIndex) { // 如果关键字索引大于开始索引，则开始索引-关键字之前索引是不需要变化的
+						    nodes.push({
+						      type: 'text',
+						      text: text.substring(startIndex, index)
+						    });
+						  }
+						
+						  // 添加需要变红的文本节点
+						  nodes.push({
+						    name: 'span',
+						    attrs: {
+						      style: 'color: #08C060;'
+						    },
+						    children: [
+						      {
+						        type: 'text',
+						        text: this.keyword
+						      }
+						    ]
+						  });
+						
+						  startIndex = index + this.keyword.length;
+						  index = text.indexOf(this.keyword, startIndex);
+						}
+						
+						// 添加剩余的不需要变化的文本节点
+						if (startIndex < text.length) {
+						  nodes.push({
+						    type: 'text',
+						    text: text.substring(startIndex)
+						  });
+						}
+						result.nodes = nodes
+						return result
+					});
+					this.searchList = results
+				})
+			},
+			// 头像列表
+			getAvatar(from_id) {
+				let currentChatItem = {}
+				let index = this.chatList.findIndex(item => item.id === parseInt(this.id) && item.chat_type === this.chat_type);
+				currentChatItem = this.chatList[index]
+				const current = currentChatItem.avatarList?.find( v => v.user_id === from_id) || {}
+				return current.avatar
+			},
+			// 获取名称
+			getName() {
+				let currentChatItem = {}
+				let index = this.chatList.findIndex(item => item.id === parseInt(this.id) && item.chat_type === this.chat_type);
+				currentChatItem = this.chatList[index]
+				this.name = currentChatItem.name
+			},
+			async getChatList(message_id) {
+				const table = `chat_${this.user.id}_${this.chat_type}_${this.id}`
+				const sql = `SELECT COUNT(*) FROM ${table} WHERE create_time > (SELECT create_time FROM ${table} WHERE message_id = '${message_id}')`
+				const data = await DB.selectSql(sql)
+				// 取得当前记录所在位置
+				const record_count = data[0]['COUNT(*)']
+				// 计算所在页数 (record_count + pageSize) / pageSize
+				const pageNumber = Math.floor((record_count + DB.pageSize) / DB.pageSize)
+				// 获取当前所有页的数据
+				let arr = []
+				for(let i = 1; i <= pageNumber; i ++) {
+					const data = await this.chat.getChatHistory({ page: i, id: parseInt(this.id), chat_type: this.chat_type })
+					arr.push(...data)
+				}
+				if (this.type !== 'global') {
+					uni.navigateBack({ delta:2 })
+					// 通知聊天页面跳转到当前记录
+					uni.$emit('toChatHistory', { data: arr, message_id, page: pageNumber })
+				} else {
+					let currentChatItem = {}
+					let index = this.chatList.findIndex(item => item.id === parseInt(this.id) && item.chat_type === this.chat_type);
+					currentChatItem = this.chatList[index]
+					uni.navigateTo({
+						url: `/pages/chat/chat?params=${encodeURIComponent(JSON.stringify({
+							id: currentChatItem.id,
+							name: currentChatItem.name,
+							avatar: currentChatItem.avatar,
+							chat_type: currentChatItem.chat_type,
+							type: 'global'
+						}))}`,
+						success: () => {
+							uni.$emit('toChatHistory', { data: arr, message_id, page: pageNumber })
+						}
+					})
+				}
+				
+				
+			}
+		}
+	}
+</script>
+
+<style>
+
+</style>

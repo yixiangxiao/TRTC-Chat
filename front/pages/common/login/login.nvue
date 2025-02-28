@@ -1,0 +1,192 @@
+<template>
+	<view>
+		<view v-if="!show" class="position-fixed top-0 bottom-0 left-0 right-0 bg-light flex align-center justify-center">
+			<text class="text-muted font-md">正在加载...</text>
+		</view>
+		
+		<view v-else>
+			<view class="flex align-center justify-center" style="height: 350rpx;">
+				<text class="font-lg">欢迎回来</text>
+			</view>
+			
+			<view class="px-3">
+				<view class="position-relative">
+					<input :adjust-position="false" class="bg-light px-3 mb-3 font" :value="form.username" @input="getUserName" @blur="checkUserName" 
+					style="height: 100rpx;" type="text" placeholder="请输入用户名">
+					<view v-if="showUsernameCheckResult" class="position-absolute" style="bottom: 60rpx;right: 0;">
+						<image style="height: 32rpx;width: 32rpx;" :src="userNameSrc"></image>
+					</view>
+					<view v-if="userNameInfo" class="ml-2">
+						<text class="font-sm" style="color: red;">{{userNameInfo}}</text>
+					</view>
+				</view>
+				
+				<view class="position-relative">
+					<input :adjust-position="false" :value="form.password" @input="getPassword" @blur="checkPassword" class="bg-light px-3 mb-3 font" 
+					style="height: 100rpx;" :type="lookType" placeholder="请输入密码">
+					<view  @click="looks" class="position-absolute" style="bottom: 60rpx;right: 0;">
+						<image style="height: 32rpx;width: 32rpx;" :src="lookUrl"></image>
+					</view>
+					<view v-if="passwordInfo" class="ml-2">
+						<text class="font-sm" style="color: red;">{{passwordInfo}}</text>
+					</view>
+				</view>
+			</view>
+			
+			<view class="p-3 flex align-center justify-center">
+				<view @click="login" class="main-bg-color rounded p-3 flex align-center justify-center flex-1" hover-class="main-bg-hover-color">
+					<text class="text-white font-md" >登录</text>
+				</view>
+			</view>
+			
+			<view class="flex align-center justify-center">
+				<text class="text-light-muted font p-2" @click="toRegister">注册账号</text>
+				<text class="text-light-muted font p-2">|</text>
+				<text class="text-light-muted font p-2" @click="toForgetPassword">忘记密码</text>
+			</view>
+		</view>
+		
+	</view>
+</template>
+
+<script>
+	import { login, checkUserName } from '@/api/user.js';
+	import $U from '@/common/lib/util.js';
+	export default {
+		data() {
+			return {
+				show: false,
+				form: {
+					username: '',
+					password: ''
+				},
+				showUsernameCheckResult: false, //显示用户名校验结果
+				userNameInfo: '', // 用户名校验信息
+				userNameSrc: '', // 用户名校验图片
+				lookUrl: '../../../static/images/user/hide.png', // 密码图片
+				lookType: 'password',
+				islook: false,
+				passwordInfo: '',
+			}
+		},
+		created() {
+			let token = $U.getStorage('token')
+			if(!token){
+				// 用户未登录
+				return this.show = true
+			}
+			// 用户已登录
+			uni.switchTab({
+				url:"/pages/tabbar/index/index"
+			})
+			
+		},
+		onLoad(e) {
+			this.form.username = e.username || ''
+		},
+		methods: {
+			//密码显示隐藏
+			looks() {
+				if (this.islook) {
+					this.lookType = 'password';
+					this.islook = !this.islook;
+					this.lookUrl = '../../../static/images/user/hide.png';
+				} else {
+					this.lookType = 'text';
+					this.islook = !this.islook;
+					this.lookUrl = '../../../static/images/user/show.png';
+				}
+			},
+			//用户名是否存在
+			checkUserName() {
+				if (!this.form.username) {
+					this.userNameInfo = '用户名不能为空'
+					return 
+				} 
+				checkUserName({username: this.form.username}).then(res=> {
+					// 如果不存在
+					if (!res) {
+						this.userNameInfo = '用户不存在'
+						this.showUsernameCheckResult = true
+						this.userNameSrc = '../../../static/images/user/no.png'
+					} else {
+						this.userNameInfo = ''
+						this.showUsernameCheckResult = true
+						this.userNameSrc = '../../../static/images/user/yes.png'
+						
+					}
+				})
+			},
+			// 获取用户名
+			getUserName(e) {
+				if (!e.detail.value) {
+					this.showUsernameCheckResult = false
+					this.userNameInfo = ''
+				}
+				this.form.username = e.detail.value
+			},
+			// 获取密码
+			getPassword(e) {
+				if (!e.detail.value) {
+					this.passwordInfo = ''
+				}
+				this.form.password = e.detail.value
+			},
+			// 校验密码
+			checkPassword() {
+				if (!this.form.password) {
+					this.passwordInfo = '密码不能为空'
+					return
+				}
+				if (this.form.password.length < 6 || this.form.password.length > 20) {
+					this.passwordInfo = '密码长度应该在6-20位之间'
+				} else {
+					this.passwordInfo = ''
+				}
+			},
+			//登录
+			login() {
+				this.checkUserName()
+				this.checkPassword()
+				if(this.userNameInfo && this.passwordInfo) return
+				const { deviceId } = uni.getSystemInfoSync()
+				const params = {
+					username: this.form.username,
+					password: this.form.password,
+					deviceId
+				}
+				// console.log(params)
+				login(params).then(res => {
+					this.$store.dispatch('user/login', res).then(() => {
+						uni.switchTab({
+							url:'/pages/tabbar/index/index'
+						})
+						// 登录腾讯IM
+						this.$store.dispatch('loginTxTRTC')
+						uni.showToast({
+							icon:'none',
+							title:'登录成功'
+						})
+					})
+				})
+				
+			},
+			//去往注册页面
+			toRegister(){
+				uni.navigateTo({
+					url:'/pages/common/register/register'
+				})
+			},
+			//去往忘记密码页面
+			toForgetPassword(){
+				uni.navigateTo({
+					url:'/pages/common/forget-password/forget-password'
+				})
+			}
+		}
+	}
+</script>
+
+<style>
+
+</style>

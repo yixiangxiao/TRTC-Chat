@@ -1,0 +1,68 @@
+<template>
+	<!-- #ifdef APP-PLUS-NVUE -->
+	<view style="flex: 1;" class="position-relative">
+		<video :src="url" controls autoplay loop style="flex: 1;" @ended="onEnded" ></video>
+		<view @click="back" class="position-absolute flex align-center justify-center" style="width: 80rpx;height: 80rpx;top: 50rpx;left: 20rpx;background-color: rgba(255, 255, 255, 0.1);" >
+			<text class="iconfont font-lg text-white">&#xe620;</text>
+		</view>
+	</view>
+	<!-- #endif -->
+	
+	<!-- #ifdef MP -->
+	<view class="bg-danger" :style="'height:' + height + 'px'">
+		<video :src="url" controls autoplay :style="'height:' + height + 'px'" style="width: 100%;" @ended="back" ></video>
+		<view @click="back" class="position-absolute flex align-center justify-center" style="width: 80rpx;height: 80rpx;top: 50rpx;left: 20rpx;background-color: rgba(255, 255, 255, 0.1);" >
+			<text class="iconfont font-lg text-white">&#xe620;</text>
+		</view>
+	</view>
+	<!-- #endif -->
+</template>
+
+<script>
+	export default {
+		data() {
+			return {
+				url: '',
+				height: 0,
+				isAutoBack:true
+			}
+		},
+		onLoad(e) {
+			let res = uni.getSystemInfoSync()
+			this.height = res.windowHeight
+			if (e.url) {
+				this.url = decodeURIComponent(e.url)
+			} else {
+				uni.showToast({
+					icon: 'none',
+					title: '非法视频'
+				})
+			}
+			
+			if(e.isAutoBack){
+				this.isAutoBack = false
+			}else{
+				this.isAutoBack = true
+			}
+		},
+		methods: {
+			back(){
+				uni.navigateBack({
+					delta:1
+				})
+			},
+			//播放结束
+			onEnded(){
+				if(this.isAutoBack){
+					uni.navigateBack({
+						delta:1
+					})
+				}
+			}
+		},
+	}
+</script>
+
+<style>
+
+</style>
