@@ -1,5 +1,5 @@
 const nodemailer = require('nodemailer');
-exports.config = {
+const config = {
   host: 'smtp.qq.com',
   port: 465,
   auth: {
@@ -9,4 +9,8 @@ exports.config = {
 };
 
 // 创建一个SMTP客户端对象
-exports.transporter = nodemailer.createTransport(config);
+const transporter = nodemailer.createTransport(config);
+module.exports = {
+  config,
+  transporter,
+};
