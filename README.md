@@ -34,7 +34,7 @@ node 版本推荐 20.0.11
 # 后端
 需要安装minio(安装完需要创建相应存储桶，相关配置在config/config.default.js文件里)
 ffmpeg，mysql，redis
-[推荐文档](/CentOS Stream 9.md)
+## [推荐文档](/CentOS Stream 9.md)
 
 ## 1.核心配置
 config/config.default.js(包含数据库，minio，腾讯im等配置)
