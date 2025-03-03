@@ -842,7 +842,7 @@
 					this.boxHeight = height + uni.upx2px(margin)
 					this.textHeight = height
 				}
-				if (this.list[0]?.message_id) this.scrollToElement(this.list[0].message_id)
+				// if (this.list[0]?.message_id) this.scrollToElement(this.list[0].message_id)
 			},
 			onFocus() {
 				this.$nextTick(() => {
