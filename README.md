@@ -1,6 +1,8 @@
 # 简介
-客户端采用uni-app + sqLite(本地存储聊天记录，云端不保存)
-服务端采用egg.js + mysql + redis + minio(存储视频和图片)
+## 客户端
+采用uni-app + sqLite(本地存储聊天记录，云端不保存)
+## 服务端
+采用egg.js + mysql + redis + minio(存储视频和图片)
 ## 基本功能
 ![7.png](/images/7.png "1") <!-- 此路径表示图片和MD文件，处于同一目录 -->
 ## 特色
