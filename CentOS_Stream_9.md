@@ -17,7 +17,7 @@ sudo dnf install ffmpeg
 ffmpeg -version
 ```
 ## centos 安装minio 
-[地址](https://juejin.cn/post/7163902827603951653])
+[地址](https://juejin.cn/post/7163902827603951653])  https://juejin.cn/post/7163902827603951653
 记得在云服务器防火墙放开对应端口 代码上用的端口为9000 如果你在安装minio时配置的不一样，记得去修改 egg代码config.default.js minio对应的端口，ip要填你的公网ip
 
 ## Centos7 安装coturn部署一套 STUN/TURN 服务 webRTC打洞服务器(Centos9也可使用)
